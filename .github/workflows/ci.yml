@@ -1,0 +1,71 @@
+name: ci
+on:
+  push: { branches: [main] }
+  pull_request: { branches: [main] }
+jobs:
+  gate-i1-base-deps:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - run: uv venv && uv pip install -e .        # base only, NO extras
+      - run: uv run python scripts/check_base_deps.py
+      # A base install must still be able to COLLECT the whole suite — the
+      # extra-dependent files skip themselves rather than exploding at import
+      # time. This is the guard that would have caught the 0727 CI break.
+      - run: uv pip install pytest && uv run pytest --collect-only -q
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      # ALL extras: the server/MCP suites guard themselves with
+      # pytest.importorskip, so a partial install would SILENTLY SKIP them —
+      # green CI that never ran the service layer.
+      - run: uv venv && uv pip install -e ".[dev,chroma,server,mcp,llm,anthropic]"
+      - run: uv run pytest -v
+  adapters:
+    # Its own job, not extra packages on `tests`, for two reasons: the
+    # framework SDKs are a heavy install that would slow every run, and they
+    # pin their own transitive versions — a resolver conflict introduced by
+    # one of them must fail THIS job, not take the whole product suite down
+    # with it. Without this job the adapter tests importorskip themselves into
+    # a silent skip, which is the same blind spot the service layer had.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      # Verified 0803 by running these two lines verbatim in a clean venv:
+      # the three framework extras resolve together without conflict, and the
+      # suite reports 10 passed / 0 skipped — 0 skipped being the assertion
+      # that matters, since a skip here is the exact silent-pass this job exists
+      # to prevent.
+      - run: uv venv && uv pip install -e ".[dev,chroma,langgraph,crewai,openai-agents]"
+      - run: uv run pytest tests/test_adapters.py -v
+  gate-i2-i3-layering:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - run: uv venv && uv pip install -e ".[dev]"
+      - run: uv run lint-imports
+
+  sdk-ts:
+    # The TypeScript SDK ships to npm and, since R2.8, carries the Vercel AI
+    # SDK adapter — but nothing in CI compiled or ran it. `tsc` is the part
+    # that matters most here: vitest does not typecheck, so a tool built
+    # against the wrong `ai` major passes its tests and fails to build.
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: sdk-ts
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: sdk-ts/package-lock.json
+      - run: npm ci
+      - run: npm test
+      - run: npm run build

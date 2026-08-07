@@ -1,0 +1,26 @@
+include LICENSE
+include NOTICE
+include README.md
+include pyproject.toml
+
+prune .claude
+prune .github
+prune benchmarking
+prune build
+prune console
+prune data
+prune dist
+prune docs
+prune results
+prune scripts
+prune sdk-ts
+prune tests
+
+global-exclude .DS_Store
+global-exclude .env
+global-exclude .env.*
+global-exclude *.py[cod]
+global-exclude *.sqlite
+global-exclude *.sqlite3
+global-exclude answers.jsonl
+global-exclude __pycache__

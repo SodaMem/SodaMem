@@ -1,0 +1,38 @@
+# One-command self-hosted SodaMem (PRD R1.9):
+#
+#   cp .env.example .env    # then set SODAMEM_API_KEY
+#   docker compose up -d
+#
+# Auth is ON by default — this file does not set SODAMEM_AUTH_DISABLED.
+# server/settings.py fails the container at startup if SODAMEM_API_KEY is
+# unset and auth is not explicitly disabled, so an operator can't accidentally
+# ship an open server by forgetting a step.
+services:
+  sodamem:
+    build: .
+    image: sodamem:latest
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      # Forced, not left to .env: the data volume below is mounted at /data
+      # and the image's EXPOSE/HEALTHCHECK are pinned to 8000. Letting an
+      # operator override either through .env would silently detach storage
+      # from its volume or break the healthcheck — override the port mapping
+      # above instead if you need the host side on something other than 8000.
+      SODAMEM_DATA_ROOT: /data
+    volumes:
+      - sodamem-data:/data
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3).status == 200 else 1)"]
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
+
+volumes:
+  sodamem-data:
+    name: sodamem-data

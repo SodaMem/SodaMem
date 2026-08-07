@@ -1,0 +1,108 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sodamem"
+version = "0.1.0"
+description = "Evidence-grounded temporal memory for AI agents"
+requires-python = ">=3.11"
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Typing :: Typed",
+]
+
+license = { text = "Apache-2.0" }
+readme = "README.md"
+authors = [{ name = "FENGRONG WAN" }]
+dependencies = [
+    "pydantic>=2.0.0",
+    "numpy>=1.26.0",
+    "rank-bm25>=0.2.2",
+    # calendar_resolve imports dateutil at module top level (core ingest
+    # behavior, ported 1:1). Before 0723 this was undeclared and base installs
+    # only worked because chromadb -> posthog pulls it transitively — the
+    # import-coverage gate in test_base_deps.py now pins the whole class.
+    "python-dateutil>=2.8.2",
+]
+
+# Must come after every plain [project] key: a table header ends the parent
+# table, so anything below it would be parsed as a URL entry instead.
+[project.urls]
+Homepage = "https://github.com/SodaMem/SodaMem"
+Source = "https://github.com/SodaMem/SodaMem"
+Issues = "https://github.com/SodaMem/SodaMem/issues"
+
+[project.optional-dependencies]
+chroma = ["chromadb>=0.6.0"]
+# openai is the SDK sodamem.llm.openai_compat needs for OpenAI/DeepSeek/Gemini
+# (all speak the OpenAI-compatible chat-completions wire format). It lives in
+# its own extra, not `answer`, because `sodamem.llm` and `sodamem.answer` are
+# different layers (I2) — `answer` composes `llm`, it doesn't duplicate its
+# dependency. Base install stays openai-free (I1).
+llm = ["openai>=1.0.0"]
+# The Anthropic provider lives in the same llm layer but speaks its own SDK,
+# not the OpenAI wire format — its own extra so openai-compat users (the
+# benchmark rig, DeepSeek/Gemini) don't drag in a second SDK.
+anthropic = ["anthropic>=0.40.0"]
+answer = ["sodamem[llm]"]
+# mcp_server/ reuses server.stores' StoreManager/validate_user_id (the
+# path-traversal-hardened user_id allowlist + LRU store cache) rather than
+# reimplementing it — see mcp_server/README.md. StoreManager depends on
+# server.settings.Settings (pydantic-settings), so this extra now pulls in
+# the whole [server] extra (fastapi/uvicorn ride along unused by mcp_server
+# itself; one clean dependency edge beats a partial one). [server] itself is
+# left untouched.
+mcp = ["mcp>=1.9.0,<2", "sodamem[server]"]
+
+# Framework adapters (PRD R2.8). Each is a thin shell over adapters._core, so
+# installing one never pulls the other three. `import adapters` alone costs
+# nothing — every framework import is lazy, inside its factory function.
+# Verified against the versions recorded in adapters/README.md.
+langgraph = ["langchain-core>=0.3"]
+crewai = ["crewai>=0.100"]
+openai-agents = ["openai-agents>=0.1"]
+# The HTTP service layer. Kept OUT of the base install so `pip install sodamem`
+# never drags in an ASGI stack (invariant I1) — the core library must stay
+# embeddable in a process that already has its own web framework, or none.
+server = [
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.32.0",
+    "pydantic-settings>=2.0.0",
+]
+# psutil backs the one assertion that can actually catch a store leak (fds and
+# threads must stay flat across open/close cycles). Without it that test
+# skips, and a leak whose only symptom is silently-degraded retrieval goes
+# unnoticed again.
+dev = ["pytest>=8.0.0", "pytest-asyncio>=0.23", "import-linter>=2.0", "ruff", "mypy", "httpx>=0.27", "psutil>=5.9"]
+
+[project.scripts]
+# The integration entry point: `sodamem install <client>`, `sodamem daemon
+# ensure`, and the `sodamem hook ...` commands those installs write into
+# client config. Base install, no extras — a hook has to run on a machine
+# that only ever `pip install sodamem`d, and it talks HTTP with stdlib.
+sodamem = "sodamem_cli:main"
+sodamem-mcp = "mcp_server.main:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+# EVERY shipped top-level package must be listed. `server*` was missing until
+# 0727: `pip install sodamem[server]` installed FastAPI and then had no server
+# code to run — a broken extra that nothing caught, because the dev tree
+# imports from source. tests/test_packaging.py now pins this.
+include = ["sodamem*", "sodamem_cli*", "mcp_server*", "server*", "adapters*"]
+
+[tool.setuptools.package-data]
+sodamem = ["py.typed"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests", "benchmarking/tests"]
+asyncio_mode = "strict"

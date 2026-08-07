@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/SodaMem/SodaMem/security/advisories/new
+    about: Report privately. Never in a public issue.

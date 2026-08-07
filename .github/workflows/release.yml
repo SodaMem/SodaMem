@@ -1,0 +1,97 @@
+name: release
+
+# Tag-driven, never branch-driven. Publishing is irreversible in a way merging
+# is not: a version number on PyPI can be yanked but never reused, so the
+# trigger has to be a deliberate act (`git tag v0.1.0 && git push --tags`),
+# not a side effect of landing a PR.
+on:
+  push:
+    tags: ["v*"]
+
+jobs:
+  # The same gate ci.yml runs, repeated here on the exact tagged commit.
+  # Trusting "CI was green on main" is not the same thing: tags can point at
+  # any commit, and a release must test what it actually ships.
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - run: uv venv && uv pip install -e ".[dev,chroma,server,mcp,llm,anthropic]"
+      - run: uv run pytest -q
+      - run: uv run lint-imports
+      - run: uv run ruff check sodamem server mcp_server tests
+
+  # Fails the release BEFORE anything is uploaded if the tag and the declared
+  # version disagree. Catching this after publishing is unrecoverable.
+  version-matches-tag:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: tag == pyproject.version == package.json.version
+        run: |
+          TAG="${GITHUB_REF_NAME#v}"
+          PY=$(python -c "import tomllib;print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])")
+          NPM=$(python -c "import json;print(json.load(open('sdk-ts/package.json'))['version'])")
+          echo "tag=$TAG pyproject=$PY npm=$NPM"
+          test "$TAG" = "$PY" || { echo "::error::tag $TAG != pyproject $PY"; exit 1; }
+          test "$TAG" = "$NPM" || { echo "::error::tag $TAG != sdk-ts $NPM"; exit 1; }
+
+  pypi:
+    needs: [test, version-matches-tag]
+    runs-on: ubuntu-latest
+    environment: release
+    permissions:
+      # A `permissions:` block REPLACES the defaults, it does not extend
+      # them. Declaring only id-token dropped `contents: read`, and
+      # actions/checkout then failed with "Repository not found" — invisible
+      # on a public repo, where an anonymous clone works anyway, and fatal on
+      # a private one. This release runs BEFORE the repository goes public,
+      # so both have to be named.
+      contents: read
+      # OIDC trusted publishing. No PyPI API token lives in repo secrets: a
+      # stored token is a standing credential that can publish any version at
+      # any time from anywhere, while this one is minted per run, scoped to
+      # this workflow on this repo, and expires in minutes.
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - run: uv build
+      # `twine check` catches a malformed README before PyPI renders it as a
+      # wall of raw markup on the page every launch visitor lands on.
+      #
+      # `uv venv` first: `uv build` needs no environment, but `uv pip install`
+      # does — without it this step dies with "No virtual environment found"
+      # AFTER the wheel is already built, which reads like a packaging failure
+      # and is not one.
+      - run: uv venv && uv pip install twine && uv run twine check dist/*
+      - uses: pypa/gh-action-pypi-publish@release/v1
+
+  npm:
+    needs: [test, version-matches-tag]
+    runs-on: ubuntu-latest
+    environment: release
+    permissions:
+      # Same as the pypi job: the block replaces the defaults, so `contents`
+      # has to be named or checkout cannot read a private repository.
+      contents: read
+      id-token: write
+    defaults:
+      run:
+        working-directory: sdk-ts
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          registry-url: "https://registry.npmjs.org"
+      - run: npm ci
+      - run: npm test --if-present
+      - run: npm run build
+      # --provenance ties the published tarball to this workflow run, so a
+      # consumer can verify the package was built from this repo at this
+      # commit rather than uploaded by hand.
+      - run: npm publish --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

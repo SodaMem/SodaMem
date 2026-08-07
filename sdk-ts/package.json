@@ -1,0 +1,74 @@
+{
+  "name": "sodamem",
+  "version": "0.1.0",
+  "description": "TypeScript/JavaScript client SDK for the SodaMem REST API.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "sideEffects": false,
+  "engines": {
+    "node": ">=18"
+  },
+  "main": "./dist/cjs/index.js",
+  "module": "./dist/esm/index.js",
+  "types": "./dist/esm/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/esm/index.d.ts",
+      "import": "./dist/esm/index.js",
+      "require": "./dist/cjs/index.js"
+    },
+    "./package.json": "./package.json",
+    "./vercel": {
+      "types": "./dist/esm/vercel.d.ts",
+      "import": "./dist/esm/vercel.js",
+      "require": "./dist/cjs/vercel.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE",
+    "NOTICE"
+  ],
+  "scripts": {
+    "clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\"",
+    "build:esm": "tsc -p tsconfig.esm.json",
+    "build:cjs": "tsc -p tsconfig.cjs.json && node -e \"require('fs').writeFileSync('dist/cjs/package.json', JSON.stringify({type:'commonjs'}))\"",
+    "build": "npm run clean && npm run build:esm && npm run build:cjs",
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.esm.json --noEmit",
+    "prepublishOnly": "npm run build && npm test"
+  },
+  "devDependencies": {
+    "@types/node": "^22.9.0",
+    "ai": "^7.0.48",
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.4",
+    "zod": "^4.4.3"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/SodaMem/SodaMem",
+    "directory": "sdk-ts"
+  },
+  "keywords": [
+    "sodamem",
+    "memory",
+    "llm",
+    "agent",
+    "sdk"
+  ],
+  "author": "FENGRONG WAN",
+  "peerDependencies": {
+    "ai": ">=5.0.0",
+    "zod": ">=3.23.0"
+  },
+  "peerDependenciesMeta": {
+    "ai": {
+      "optional": true
+    },
+    "zod": {
+      "optional": true
+    }
+  }
+}

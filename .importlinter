@@ -1,0 +1,70 @@
+[importlinter]
+root_packages =
+    sodamem
+    sodamem_cli
+# Required so the I3 contract can name third-party modules (fastapi/uvicorn)
+# as forbidden — without it import-linter only reasons about first-party code.
+include_external_packages = True
+
+[importlinter:contract:layers]
+name = SodaMem layering (answer -> context -> memory, never reverse)
+type = layers
+layers =
+    sodamem.answer
+    sodamem.context | sodamem.tools
+    sodamem.memory
+# The root `sodamem` facade (sodamem/__init__.py) is the composition root: it
+# sits ABOVE every layer and orchestrates them, so it legitimately imports
+# answer/context/tools/memory. `context` and `tools` in turn import the root
+# ONLY for the `SodaMem` type hint (guarded by TYPE_CHECKING — no runtime
+# cycle). import-linter still counts those type-only edges, and combined with
+# the facade's root->answer import they trace a spurious context->answer /
+# tools->answer / tools->context path. Whitelist exactly those type-only
+# edges; the real runtime layering is intact (verified: no runtime import of
+# the root from context/tools).
+ignore_imports =
+    sodamem.context -> sodamem
+    sodamem.tools -> sodamem
+
+[importlinter:contract:retrieval-no-llm]
+name = retrieval must not import the llm layer (I5 structural half)
+type = forbidden
+source_modules =
+    sodamem.memory.retrieval
+forbidden_modules =
+    sodamem.llm
+
+[importlinter:contract:i3-server-one-way]
+name = I3: the core library must never import the service layer
+type = forbidden
+source_modules =
+    sodamem
+forbidden_modules =
+    server
+    fastapi
+    uvicorn
+# Direction is the whole point: `server` composes `sodamem` (routes call the
+# facade), never the reverse. Combined with the [server] extra this also keeps
+# invariant I1 true structurally — if `sodamem` ever imports fastapi, a base
+# install breaks and THIS contract fails first, in CI, with a readable name.
+
+[importlinter:contract:cli-stays-stdlib]
+name = the hook path must stay import-cheap (stdlib only)
+type = forbidden
+source_modules =
+    sodamem_cli
+forbidden_modules =
+    sodamem
+    server
+    mcp_server
+    fastapi
+    uvicorn
+    pydantic
+    chromadb
+# `sodamem hook recall` runs as a FRESH PROCESS on every prompt the user
+# submits, inside a timeout the editor blocks on. Every module imported here
+# is latency a human feels, and pydantic/chromadb are seconds, not
+# milliseconds. It also keeps the integration installable from a base
+# `pip install sodamem`: talking to the service is HTTP, and stdlib can do
+# HTTP. The CLI SPAWNS uvicorn (`sodamem daemon ensure`) via subprocess —
+# which is exactly why it must not import it.

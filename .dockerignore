@@ -1,0 +1,70 @@
+# NOTE ON PATTERN DEPTH — .dockerignore is NOT .gitignore.
+#
+# Docker matches each pattern against the file's FULL path relative to the
+# build context root, and a pattern segment never spans `/`. So a bare
+# `__pycache__/` excludes ONLY `<root>/__pycache__/` — it does nothing about
+# `sodamem/memory/__pycache__/`, which would then be copied into the image.
+# .gitignore's "match at any depth" behavior does not exist here.
+#
+# Anything that can appear at more than one level therefore needs an explicit
+# `**/` prefix. Getting this wrong is silent: the build still succeeds, it
+# just carries files you believed were excluded.
+
+# VCS / editor
+.git/
+.github/
+.gitignore
+.superpowers/
+
+# Python build/venv/cache artifacts
+**/.venv/
+**/venv/
+**/__pycache__/
+**/*.py[cod]
+**/*.egg-info/
+**/build/
+**/dist/
+**/.pytest_cache/
+**/.mypy_cache/
+**/.ruff_cache/
+.import_linter_cache/
+htmlcov/
+.coverage
+.coverage.*
+
+# Local data / secrets — never bake these into an image layer
+.env
+.env.*
+!.env.example
+data/
+
+# Test suite — not needed in the runtime image
+tests/
+
+# JS/TS surfaces and docs. `console/` IS part of the build context — the
+# console-builder stage compiles it — but only its source. node_modules is
+# reinstalled from the lockfile inside the stage, and a host-built
+# `console/dist` must never reach the context: the image ships the dist IT
+# built, never a stale local one. Both are covered by the `**/` rules above,
+# but `console/dist/` is spelled out anyway because that guarantee is the
+# whole reason the console-builder stage exists.
+console/dist/
+console/node_modules/
+sdk-ts/
+node_modules/
+docs/
+
+# `mcp_server/` is NOT excluded. It is a declared package root, so the
+# builder's `uv sync --no-editable` install needs its sources present —
+# Dockerfile's `COPY mcp_server ./mcp_server` fails outright without them.
+# It was listed here from when the image copied only `server/`, and the
+# stale entry survived the change that added the COPY.
+
+# OS cruft
+**/.DS_Store
+
+# This project's own Docker build context noise
+Dockerfile
+.dockerignore
+docker-compose.yml
+docker-compose.*.yml

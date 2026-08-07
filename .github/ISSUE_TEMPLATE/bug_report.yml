@@ -1,0 +1,42 @@
+name: Bug report
+description: Something behaves differently from what the docs or the code say it should
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        For anything security-related, do **not** open an issue — use a
+        [private advisory](https://github.com/SodaMem/SodaMem/security/advisories/new).
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened, and what did you expect
+      description: If a doc or docstring promised the other behaviour, quote it — that is a bug in its own right.
+    validations: {required: true}
+  - type: textarea
+    id: repro
+    attributes:
+      label: Reproduction
+      description: Smallest code or curl that shows it. A store built by `SodaMem.open()` on a fresh directory is ideal.
+      render: shell
+    validations: {required: true}
+  - type: textarea
+    id: env
+    attributes:
+      label: Environment
+      description: |
+        Paste the output of both. `schema_version` matters for anything touching a store,
+        and the extras you installed decide which code paths even exist.
+      value: |
+        $ pip show sodamem | head -2
+        $ python -c "import sodamem; print(sodamem.__version__)"
+        # if running the service:
+        $ curl -s localhost:8000/health
+      render: shell
+    validations: {required: true}
+  - type: input
+    id: surface
+    attributes:
+      label: Which surface
+      description: library / HTTP / MCP / an agent adapter / the CLI
+    validations: {required: true}

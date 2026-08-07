@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SodaMem Console</title>
+    <meta name="description" content="Read-mostly admin console for the SodaMem evidence-grounded temporal memory API." />
+    <!-- Theme is applied before paint to avoid a light->dark flash. Mirrors
+         the localStorage key used by src/components/theme-provider.tsx. -->
+    <script>
+      (function () {
+        try {
+          var stored = localStorage.getItem('sodamem-console-theme');
+          var theme = stored === 'light' || stored === 'dark' ? stored : null;
+          if (!theme) {
+            theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+          }
+          document.documentElement.classList.add(theme);
+        } catch (e) {}
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

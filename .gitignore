@@ -1,0 +1,14 @@
+__pycache__/
+*.egg-info/
+.venv/
+build/
+dist/
+.pytest_cache/
+.superpowers/
+.DS_Store
+data/
+
+# Local handoff notes — machine paths and internal history, never shipped.
+context.md
+# Agent workspace: internal specs, worktrees, session state. Never public.
+.claude/

@@ -1,0 +1,30 @@
+name: Feature request
+description: Propose a capability that does not exist yet
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What are you trying to do, and what makes it impossible or awkward today? Describe the situation, not the solution.
+    validations: {required: true}
+  - type: textarea
+    id: workaround
+    attributes:
+      label: What you do instead right now
+      description: A workaround that exists is useful information — it bounds how much the feature is worth.
+    validations: {required: true}
+  - type: textarea
+    id: shape
+    attributes:
+      label: What it might look like
+      description: Optional. A signature or a request body is enough.
+  - type: checkboxes
+    id: constraints
+    attributes:
+      label: Does it touch any of these
+      description: Not disqualifying — but they change the design, so say so up front.
+      options:
+        - label: Would make `search` or `build_context` call an LLM
+        - label: Would change what is stored, or the store schema
+        - label: Would add a dependency to the base install
