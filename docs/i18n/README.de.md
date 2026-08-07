@@ -1,6 +1,9 @@
 <div align="center">
 
-# SodaMem
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../assets/logo-dark.webp">
+  <img src="../assets/logo.webp" alt="SodaMem" width="260">
+</picture>
 
 **Zeitlich fundiertes, belegbares Gedächtnis für KI-Agenten.**
 
@@ -10,10 +13,15 @@ Jede Erinnerung weiß, aus welchem Gesprächszug sie stammt — und ab wann sie 
 [![Python](https://img.shields.io/badge/python-3.11%2B-blue.svg)](../../pyproject.toml)
 [![LongMemEval](https://img.shields.io/badge/LongMemEval-92.8%25-brightgreen.svg)](../../benchmarking/artifacts/)
 [![LoCoMo](https://img.shields.io/badge/LoCoMo-86.88%25-brightgreen.svg)](../../benchmarking/README.md#locomo-cat-1-4)
+[![Discussions](https://img.shields.io/github/discussions/SodaMem/SodaMem?logo=github&label=discussions)](https://github.com/SodaMem/SodaMem/discussions)
 
 <!-- langs -->
 [English](../../README.md) · [简体中文](README.zh-CN.md) · [日本語](README.ja.md) · [한국어](README.ko.md) · [Français](README.fr.md) · [Español](README.es.md) · **Deutsch** · [Português](README.pt-BR.md)
 <!-- /langs -->
+
+<img src="../assets/benchmark-cost-accuracy.webp" alt="Cost-accuracy trade-off on LongMemEval-S" width="760">
+
+*Genauigkeit gegen geschätzte API-Kosten pro Frage. Der Quadrant, auf den es ankommt, liegt oben links.*
 
 </div>
 
@@ -58,6 +66,18 @@ Ihrer Festplatte. Füllen Sie diesen Cache vorab, läuft sie ohne Netz.
 Die meisten Gedächtnissysteme speichern, **was** gesagt wurde. Woran sie
 scheitern, sind die Fragen **seit wann es nicht mehr stimmt** und **woher es
 kommt** — beides Fragen des Datenmodells, nicht eines größeren Vektorindex.
+
+
+| die Frage | die übliche Antwort | SodaMem |
+|---|---|---|
+| Woher stammt diese Erinnerung? | ein Ähnlichkeitswert und etwas Metadaten | `FactEvent → SourceSpan → RawTurn` — eine Fremdschlüsselkette bis zum genauen Turn |
+| Die Nutzerin hat es sich anders überlegt — und jetzt? | überschreiben; der alte Wert ist weg | nur anfügen, dazu eine `SUPERSEDES`-Kante; die alte Version schließt mit `valid_until` und bleibt lesbar |
+| „Ich bin letztes Jahr nach Chicago gezogen“ vs. „ich ziehe nächstes Jahr“ | ein Zeitstempel | vier Zeitachsen: geschehen / gültig / gesagt / gespeichert |
+| Was kostet ein Abruf? | ein LLM-Aufruf pro Abruf | `build_context` macht **keinen** und liefert einen fertigen Prompt-Block samt Belegen |
+| Zweimal dieselbe Anfrage — dieselbe Antwort? | hängt vom Sampling des Modells ab | deterministische Fusion: gleicher Store, gleiche Anfrage, gleiches Ergebnis |
+| Warum hat es X vergessen? | keine Antwort | `/v1/events` protokolliert jedes Anlegen, Ersetzen und Löschen — mit Begründung |
+
+Jede Zeile wird unten ausgeführt, und jede lässt sich in diesem Repository nachprüfen, statt geglaubt werden zu müssen.
 
 ### Jede Erinnerung bringt ihren Beleg mit
 
@@ -124,6 +144,10 @@ hat der Agent X vergessen?“ ist im Nachhinein beantwortbar.
 
 ## Benchmark
 
+<div align="center">
+  <img src="../assets/benchmark-longmemeval.webp" alt="LongMemEval: SodaMem 92.8%, Hindsight 91.4%, Mem0 OSS 91.0%" width="720">
+</div>
+
 **92,8 % (464/500)** auf LongMemEval.
 
 | | |
@@ -137,6 +161,10 @@ hat der Agent X vergessen?“ ist im Nachhinein beantwortbar.
 Wortlaut, 8.427 Belege. Bewerten Sie sie mit einem Judge Ihrer Wahl neu, oder
 geben Sie unseren abgerufenen Kontext Ihrem eigenen Reader und sehen Sie, was
 die Zahl macht. Beides ohne Zugriff auf irgendetwas von uns.
+
+<div align="center">
+  <img src="../assets/benchmark-locomo.webp" alt="LoCoMo: SodaMem 86.88%, MemMachine 91.69%, Hindsight 89.61%, MIRIX 85.38%, Memobase 75.78%, Mem0 OSS 66.88%" width="720">
+</div>
 
 **86,88 % (1338/1540)** auf LoCoMo, Kategorien 1-4 — Kategorie 5 (adversarial)
 ist ausgeschlossen, das sind 1.540 der 1.986 Fragen. End-to-End-QA-Genauigkeit,

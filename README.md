@@ -1,6 +1,9 @@
 <div align="center">
 
-# SodaMem
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/logo-dark.webp">
+  <img src="docs/assets/logo.webp" alt="SodaMem" width="260">
+</picture>
 
 **Evidence-grounded temporal memory for AI agents.**
 
@@ -10,10 +13,15 @@ Every memory can name the turn it came from, and knows when it stopped being tru
 [![Python](https://img.shields.io/badge/python-3.11%2B-blue.svg)](pyproject.toml)
 [![LongMemEval](https://img.shields.io/badge/LongMemEval-92.8%25-brightgreen.svg)](benchmarking/artifacts/)
 [![LoCoMo](https://img.shields.io/badge/LoCoMo-86.88%25-brightgreen.svg)](benchmarking/README.md#locomo-cat-1-4)
+[![Discussions](https://img.shields.io/github/discussions/SodaMem/SodaMem?logo=github&label=discussions)](https://github.com/SodaMem/SodaMem/discussions)
 
 <!-- langs -->
 **English** · [简体中文](docs/i18n/README.zh-CN.md) · [日本語](docs/i18n/README.ja.md) · [한국어](docs/i18n/README.ko.md) · [Français](docs/i18n/README.fr.md) · [Español](docs/i18n/README.es.md) · [Deutsch](docs/i18n/README.de.md) · [Português](docs/i18n/README.pt-BR.md)
 <!-- /langs -->
+
+<img src="docs/assets/benchmark-cost-accuracy.webp" alt="Cost-accuracy trade-off on LongMemEval-S: SodaMem sits in the high-accuracy, low-cost quadrant" width="760">
+
+*Accuracy against estimated API cost per question. The quadrant that matters is up and to the left.*
 
 </div>
 
@@ -58,6 +66,18 @@ that cache and it runs air-gapped.
 Most memory systems store *what* you said. The questions that break them are
 *when it stopped being true* and *where it came from* — and those need a data
 model, not a bigger vector index.
+
+| the question | the usual answer | SodaMem |
+|---|---|---|
+| Where did this memory come from? | a similarity score and some metadata | `FactEvent → SourceSpan → RawTurn`, a foreign-key chain down to the exact turn |
+| The user changed their mind — now what? | overwrite; the old value is gone | ADD-only plus a `SUPERSEDES` edge; the old version closes with a `valid_until` and stays readable |
+| "I moved to Chicago last year" vs "I move next year" | one timestamp | four time axes: occurred / valid / said / stored |
+| What does one retrieval cost? | an LLM call per retrieval | `build_context` makes **zero**, and returns a prompt-ready block with citations |
+| Same query twice — same answer? | depends on the model's sampling | deterministic fusion: same store, same query, same result |
+| Why did it forget X? | no answer | `/v1/events` records every add, supersede and delete, with its reason |
+
+Each row is expanded below, and each one is something you can check in this
+repository rather than take on faith.
 
 ### Every memory carries its receipt
 
@@ -121,6 +141,10 @@ is answerable after the fact instead of a shrug.
 
 ## Benchmark
 
+<div align="center">
+  <img src="docs/assets/benchmark-longmemeval.webp" alt="LongMemEval: SodaMem 92.8%, Hindsight 91.4%, Mem0 OSS 91.0%" width="720">
+</div>
+
 **92.8% (464/500)** on LongMemEval.
 
 | | |
@@ -134,6 +158,10 @@ is answerable after the fact instead of a shrug.
 8,427 evidence rows. Re-grade them with any judge, or hand the retrieved
 context to your own reader and see what the number does. Neither needs access
 to anything of ours.
+
+<div align="center">
+  <img src="docs/assets/benchmark-locomo.webp" alt="LoCoMo: SodaMem 86.88%, MemMachine 91.69%, Hindsight 89.61%, MIRIX 85.38%, Memobase 75.78%, Mem0 OSS 66.88%" width="720">
+</div>
 
 **86.88% (1338/1540)** on LoCoMo. End-to-end QA accuracy, LLM-as-judge.
 

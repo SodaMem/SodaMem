@@ -1,6 +1,9 @@
 <div align="center">
 
-# SodaMem
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../assets/logo-dark.webp">
+  <img src="../assets/logo.webp" alt="SodaMem" width="260">
+</picture>
 
 **AI エージェントのための、証拠を辿れる時間軸つきメモリ層。**
 
@@ -10,10 +13,15 @@
 [![Python](https://img.shields.io/badge/python-3.11%2B-blue.svg)](../../pyproject.toml)
 [![LongMemEval](https://img.shields.io/badge/LongMemEval-92.8%25-brightgreen.svg)](../../benchmarking/artifacts/)
 [![LoCoMo](https://img.shields.io/badge/LoCoMo-86.88%25-brightgreen.svg)](../../benchmarking/README.md#locomo-cat-1-4)
+[![Discussions](https://img.shields.io/github/discussions/SodaMem/SodaMem?logo=github&label=discussions)](https://github.com/SodaMem/SodaMem/discussions)
 
 <!-- langs -->
 [English](../../README.md) · [简体中文](README.zh-CN.md) · **日本語** · [한국어](README.ko.md) · [Français](README.fr.md) · [Español](README.es.md) · [Deutsch](README.de.md) · [Português](README.pt-BR.md)
 <!-- /langs -->
+
+<img src="../assets/benchmark-cost-accuracy.webp" alt="Cost-accuracy trade-off on LongMemEval-S" width="760">
+
+*縦軸は正確度、横軸は 1 問あたりの推定 API コスト。意味があるのは左上の象限です。*
 
 </div>
 
@@ -57,6 +65,18 @@ print(block.citations)   # その一行一行の根拠
 多くのメモリシステムが保存するのは「何を言ったか」です。実際に破綻を招くのは
 **それがいつ真でなくなったか**と**どこから来たか**——この二つはデータモデルで
 解く問題であり、ベクトルインデックスを大きくしても解決しません。
+
+
+| 問い | よくある答え | SodaMem |
+|---|---|---|
+| この記憶はどこから来たのか？ | 類似度スコアと、いくつかのメタデータ | `FactEvent → SourceSpan → RawTurn` の外部キー連鎖が、まさにその発話まで辿れる |
+| ユーザーが前言を撤回したら？ | 上書きし、古い値は消える | 追加のみ、加えて `SUPERSEDES` エッジ。旧版は `valid_until` で閉じ、読める状態で残る |
+| 「去年シカゴに引っ越した」と「来年引っ越す」 | タイムスタンプ一つ | 四つの時間軸：発生 / 有効 / 発話 / 保存 |
+| 検索 1 回のコストは？ | 検索のたびに LLM 呼び出し | `build_context` はモデル呼び出し **ゼロ**、引用つきの完成プロンプトを返す |
+| 同じクエリを二度投げたら同じ答えか？ | モデルのサンプリング次第 | 決定的な融合：同じストア、同じクエリ、同じ結果 |
+| なぜ X を忘れたのか？ | 答えようがない | `/v1/events` が追加・上書き・削除をすべて理由つきで記録 |
+
+以下の各節はこの表の 1 行ずつを展開したものです。どの行もこのリポジトリ内で確認でき、信じてもらう必要はありません。
 
 ### すべての記憶が証拠を携える
 
@@ -119,6 +139,10 @@ LLM オーガナイザ（value-board / enumeration-sweep）を走らせ、「知
 
 ## ベンチマーク
 
+<div align="center">
+  <img src="../assets/benchmark-longmemeval.webp" alt="LongMemEval: SodaMem 92.8%, Hindsight 91.4%, Mem0 OSS 91.0%" width="720">
+</div>
+
 LongMemEval **92.8%（464/500）**。
 
 | | |
@@ -132,6 +156,10 @@ LongMemEval **92.8%（464/500）**。
 全文と 8,427 件の証拠。任意の judge で採点し直すことも、取得コンテキストを
 自前の reader に渡して数字がどう動くか確かめることもできます。どちらも当方の
 サービスへのアクセスは不要です。
+
+<div align="center">
+  <img src="../assets/benchmark-locomo.webp" alt="LoCoMo: SodaMem 86.88%, MemMachine 91.69%, Hindsight 89.61%, MIRIX 85.38%, Memobase 75.78%, Mem0 OSS 66.88%" width="720">
+</div>
 
 LoCoMo **86.88%（1338/1540）**。エンドツーエンドの QA 正解率、
 判定は LLM-as-judge。

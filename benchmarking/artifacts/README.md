@@ -16,7 +16,24 @@ the verdict our judge gave it.
 
 **Why `hypothesis` is the point.** A score alone cannot be checked by anyone.
 The answers can: take this file, run any judge you like against
-`golden_answer`, and see what you get. numbers.
+`golden_answer`, and see what you get.
+
+**`tools_used` names memory tools, not web tools.** Every value prefixed
+`browser_` is the planner browsing *the memory store* — `browser_search`
+queries stored facts, `browser_inspect_session` opens one recorded session,
+`browser_count_evidence` counts matching evidence rows, `browser_timeline_events`
+walks one entity's history. **This run made no network request of any kind
+beyond the LLM API.** SodaMem ships no web-search tool; there is nothing in
+`sodamem/tools/` that can reach the open internet.
+
+### Where the dataset fields come from
+
+`question` and `golden_answer` are reproduced verbatim from
+[LongMemEval](https://github.com/xiaowu0162/LongMemEval) (Wu et al.) solely so
+that each of our answers can be aligned with, and re-judged against, the item
+it responds to. We claim no rights over them, we redistribute no part of the
+conversation histories, and we will remove these fields on request from the
+dataset's authors — `question_id` alone is enough to rejoin them locally.
 
 ### What this run is
 

@@ -1,6 +1,9 @@
 <div align="center">
 
-# SodaMem
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../assets/logo-dark.webp">
+  <img src="../assets/logo.webp" alt="SodaMem" width="260">
+</picture>
 
 **给 AI Agent 的证据可溯、带时间的记忆层。**
 
@@ -10,10 +13,15 @@
 [![Python](https://img.shields.io/badge/python-3.11%2B-blue.svg)](../../pyproject.toml)
 [![LongMemEval](https://img.shields.io/badge/LongMemEval-92.8%25-brightgreen.svg)](../../benchmarking/artifacts/)
 [![LoCoMo](https://img.shields.io/badge/LoCoMo-86.88%25-brightgreen.svg)](../../benchmarking/README.md#locomo-cat-1-4)
+[![Discussions](https://img.shields.io/github/discussions/SodaMem/SodaMem?logo=github&label=discussions)](https://github.com/SodaMem/SodaMem/discussions)
 
 <!-- langs -->
 [English](../../README.md) · **简体中文** · [日本語](README.ja.md) · [한국어](README.ko.md) · [Français](README.fr.md) · [Español](README.es.md) · [Deutsch](README.de.md) · [Português](README.pt-BR.md)
 <!-- /langs -->
+
+<img src="../assets/benchmark-cost-accuracy.webp" alt="Cost-accuracy trade-off on LongMemEval-S" width="760">
+
+*纵轴是准确率，横轴是每个问题的预估 API 成本。有意义的象限在左上角。*
 
 </div>
 
@@ -55,6 +63,18 @@ print(block.citations)   # 这段文字里每一句的证据出处
 多数记忆系统记录的是**你说过什么**。真正让它们失效的问题是**这话从哪一刻起
 不再成立**和**它到底出自哪里**——而这两件事要靠数据模型解决，不是靠更大的
 向量索引。
+
+
+| 这个问题 | 常见做法 | SodaMem |
+|---|---|---|
+| 这条记忆是哪来的？ | 一个相似度分数，外加几个元数据字段 | `FactEvent → SourceSpan → RawTurn` 外键链，一路指到具体那一轮对话 |
+| 用户改口了怎么办？ | 覆盖写，旧值就此消失 | 只增不改，再加一条 `SUPERSEDES` 边；旧版本以 `valid_until` 收尾，依然可读 |
+| 「我去年搬去了芝加哥」和「我明年要搬」 | 同一个时间戳 | 四条时间轴：发生 / 有效 / 说出 / 存入 |
+| 取一次上下文要花多少钱？ | 每检索一次就过一遍 LLM | `build_context` **零** 模型调用，直接返回带引用的成品 prompt |
+| 同一个查询问两次，结果一样吗？ | 取决于模型这次怎么采样 | 确定性融合：同一个库、同一个查询、同一个结果 |
+| 它为什么忘了 X？ | 没有答案 | `/v1/events` 记录每一次新增、覆盖与删除，连原因一起 |
+
+下面每个小节展开其中一行——而且每一行都能在这个仓库里查证，不需要你选择相信。
 
 ### 每条记忆都带着凭证
 
@@ -112,6 +132,10 @@ organizer，所以那条路由的零 LLM 保证不可能被某个请求参数翻
 
 ## 跑分
 
+<div align="center">
+  <img src="../assets/benchmark-longmemeval.webp" alt="LongMemEval: SodaMem 92.8%, Hindsight 91.4%, Mem0 OSS 91.0%" width="720">
+</div>
+
 LongMemEval **92.8%（464/500）**。
 
 | | |
@@ -124,6 +148,10 @@ LongMemEval **92.8%（464/500）**。
 [`benchmarking/artifacts/`](../../benchmarking/artifacts/)——500 条逐字答案，
 8427 条证据。你可以用任意 judge 重新判分，也可以把我们检索到的上下文喂给
 你自己的 reader 看分数怎么变。两件事都不需要接触我们的任何服务。
+
+<div align="center">
+  <img src="../assets/benchmark-locomo.webp" alt="LoCoMo: SodaMem 86.88%, MemMachine 91.69%, Hindsight 89.61%, MIRIX 85.38%, Memobase 75.78%, Mem0 OSS 66.88%" width="720">
+</div>
 
 LoCoMo **86.88%（1338/1540）**。端到端问答准确率（end-to-end QA accuracy），
 由 LLM-as-judge 判分。

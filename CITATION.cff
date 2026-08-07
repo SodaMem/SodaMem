@@ -1,0 +1,22 @@
+cff-version: 1.2.0
+title: "SodaMem: Evidence-grounded temporal memory for AI agents"
+message: "If you use SodaMem in your research, please cite it as below."
+type: software
+authors:
+  - family-names: WAN
+    given-names: FENGRONG
+repository-code: "https://github.com/SodaMem/SodaMem"
+license: Apache-2.0
+version: 0.1.0
+abstract: >-
+  SodaMem is a memory layer for AI agents in which every stored fact keeps a
+  foreign-key chain back to the conversation turn that produced it, and carries
+  four independent time axes (occurred, valid, said, stored) so that a fact can
+  stop being true without being deleted. Retrieval is deterministic and makes no
+  model call on the default path.
+keywords:
+  - agent-memory
+  - temporal-knowledge-graph
+  - retrieval
+  - provenance
+  - llm
