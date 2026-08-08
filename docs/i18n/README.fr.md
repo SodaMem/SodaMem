@@ -27,6 +27,51 @@ Chaque souvenir sait de quel tour de conversation il provient, et à partir de q
 
 ---
 
+## Benchmark
+
+<div align="center">
+  <img src="../assets/benchmark-longmemeval.webp" alt="LongMemEval: SodaMem 92.8%, Hindsight 91.4%, Mem0 OSS 91.0%" width="720">
+</div>
+
+**92,8 % (464/500)** sur LongMemEval.
+
+| | |
+|---|---|
+| reader / planner / judge | `deepseek-v4-flash` |
+| prompts de notation | les gabarits `evaluate_qa.py` du benchmark LongMemEval, identiques à l'octet près |
+| store | `longmemeval_s_500_Hobs_entitysubj`, 500 utilisateurs / 235 840 faits |
+
+**Chaque réponse et chaque souvenir récupéré sont publiés** dans
+[`benchmarking/artifacts/`](../../benchmarking/artifacts/) — 500 réponses
+intégrales, 8 427 éléments de preuve. Renotez-les avec le juge de votre choix, ou
+donnez notre contexte récupéré à votre propre reader et observez le chiffre.
+Ni l'un ni l'autre ne nécessite d'accès à quoi que ce soit de notre côté.
+
+<div align="center">
+  <img src="../assets/benchmark-locomo.webp" alt="LoCoMo: SodaMem 86.88%, MemMachine 91.69%, Hindsight 89.61%, MIRIX 85.38%, Memobase 75.78%, Mem0 OSS 66.88%" width="720">
+</div>
+
+**86,88 % (1338/1540)** sur LoCoMo, catégories 1-4 — la catégorie 5
+(adversarial) est exclue, soit 1 540 des 1 986 questions. Exactitude QA de bout
+en bout, notation par LLM-as-judge.
+
+| | |
+|---|---|
+| reader / planner / judge | `deepseek-v4-flash` |
+| prompts de notation | les gabarits du benchmark LongMemEval, copiés à l'octet près |
+| store | `locomo10_Hobs`, 10 stores utilisateur / 2 905 fact events |
+| code | une build pré-version — l'historique publié commence à v0.1.0 |
+
+**Aucun artefact par question n'est publié pour LoCoMo** — pas de réponses, pas
+de contexte récupéré, pas de répertoire de run. Ce qui est publié, c'est
+[la section LoCoMo de `benchmarking/README.md`](../../benchmarking/README.md#locomo-cat-1-4) :
+la ventilation par catégorie, la dispersion par conversation, la provenance et
+les étapes de reproduction.
+
+---
+
+## Démarrage rapide
+
 ```bash
 pip install "sodamem[chroma,llm]"
 ```
@@ -140,49 +185,6 @@ peut pas être renversée par un paramètre de requête.
 Même requête, même store, même résultat, à chaque fois. `/v1/events` enregistre
 chaque ajout, remplacement et suppression avec son motif : « pourquoi l'agent
 a-t-il oublié X ? » a une réponse après coup.
-
----
-
-## Benchmark
-
-<div align="center">
-  <img src="../assets/benchmark-longmemeval.webp" alt="LongMemEval: SodaMem 92.8%, Hindsight 91.4%, Mem0 OSS 91.0%" width="720">
-</div>
-
-**92,8 % (464/500)** sur LongMemEval.
-
-| | |
-|---|---|
-| reader / planner / judge | `deepseek-v4-flash` |
-| prompts de notation | les gabarits `evaluate_qa.py` du benchmark LongMemEval, identiques à l'octet près |
-| store | `longmemeval_s_500_Hobs_entitysubj`, 500 utilisateurs / 235 840 faits |
-
-**Chaque réponse et chaque souvenir récupéré sont publiés** dans
-[`benchmarking/artifacts/`](../../benchmarking/artifacts/) — 500 réponses
-intégrales, 8 427 éléments de preuve. Renotez-les avec le juge de votre choix, ou
-donnez notre contexte récupéré à votre propre reader et observez le chiffre.
-Ni l'un ni l'autre ne nécessite d'accès à quoi que ce soit de notre côté.
-
-<div align="center">
-  <img src="../assets/benchmark-locomo.webp" alt="LoCoMo: SodaMem 86.88%, MemMachine 91.69%, Hindsight 89.61%, MIRIX 85.38%, Memobase 75.78%, Mem0 OSS 66.88%" width="720">
-</div>
-
-**86,88 % (1338/1540)** sur LoCoMo, catégories 1-4 — la catégorie 5
-(adversarial) est exclue, soit 1 540 des 1 986 questions. Exactitude QA de bout
-en bout, notation par LLM-as-judge.
-
-| | |
-|---|---|
-| reader / planner / judge | `deepseek-v4-flash` |
-| prompts de notation | les gabarits du benchmark LongMemEval, copiés à l'octet près |
-| store | `locomo10_Hobs`, 10 stores utilisateur / 2 905 fact events |
-| code | une build pré-version — l'historique publié commence à v0.1.0 |
-
-**Aucun artefact par question n'est publié pour LoCoMo** — pas de réponses, pas
-de contexte récupéré, pas de répertoire de run. Ce qui est publié, c'est
-[la section LoCoMo de `benchmarking/README.md`](../../benchmarking/README.md#locomo-cat-1-4) :
-la ventilation par catégorie, la dispersion par conversation, la provenance et
-les étapes de reproduction.
 
 ---
 

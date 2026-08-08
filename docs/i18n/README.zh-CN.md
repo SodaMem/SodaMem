@@ -27,6 +27,48 @@
 
 ---
 
+## 跑分
+
+<div align="center">
+  <img src="../assets/benchmark-longmemeval.webp" alt="LongMemEval: SodaMem 92.8%, Hindsight 91.4%, Mem0 OSS 91.0%" width="720">
+</div>
+
+LongMemEval **92.8%（464/500）**。
+
+| | |
+|---|---|
+| reader / planner / judge | `deepseek-v4-flash` |
+| 判分提示词 | LongMemEval 官方 `evaluate_qa.py` 模板，逐字节相同 |
+| 跑分店 | `longmemeval_s_500_Hobs_entitysubj`,500 用户 / 235,840 条事实 |
+
+**每一条答案和每一条检索到的记忆都已公开**，见
+[`benchmarking/artifacts/`](../../benchmarking/artifacts/)——500 条逐字答案，
+8427 条证据。你可以用任意 judge 重新判分，也可以把我们检索到的上下文喂给
+你自己的 reader 看分数怎么变。两件事都不需要接触我们的任何服务。
+
+<div align="center">
+  <img src="../assets/benchmark-locomo.webp" alt="LoCoMo: SodaMem 86.88%, MemMachine 91.69%, Hindsight 89.61%, MIRIX 85.38%, Memobase 75.78%, Mem0 OSS 66.88%" width="720">
+</div>
+
+LoCoMo **86.88%（1338/1540）**。端到端问答准确率（end-to-end QA accuracy），
+由 LLM-as-judge 判分。
+
+| | |
+|---|---|
+| reader / planner / judge | `deepseek-v4-flash` |
+| 判分提示词 | LongMemEval 官方模板，逐字节复制 |
+| 跑分店 | `locomo10_Hobs`，10 个用户库 / 2,905 条 fact event |
+| 代码 | 一个预发布构建 —— 本仓库公开的历史从 v0.1.0 开始 |
+
+**LoCoMo 没有发布任何逐题产物** —— 没有 answers，没有检索上下文，没有 run 目录。
+公开的是
+[`benchmarking/README.md` 的 LoCoMo 一节](../../benchmarking/README.md#locomo-cat-1-4)：
+分类别拆分、逐会话分布、provenance 与复现步骤。
+
+---
+
+## 快速开始
+
 ```bash
 pip install "sodamem[chroma,llm]"
 ```
@@ -127,46 +169,6 @@ organizer，所以那条路由的零 LLM 保证不可能被某个请求参数翻
 
 同一个查询、同一个库，每次结果都一样。`/v1/events` 记录每一次新增、取代、
 删除及其原因——「agent 为什么忘了 X」是事后查得到的，不是耸耸肩。
-
----
-
-## 跑分
-
-<div align="center">
-  <img src="../assets/benchmark-longmemeval.webp" alt="LongMemEval: SodaMem 92.8%, Hindsight 91.4%, Mem0 OSS 91.0%" width="720">
-</div>
-
-LongMemEval **92.8%（464/500）**。
-
-| | |
-|---|---|
-| reader / planner / judge | `deepseek-v4-flash` |
-| 判分提示词 | LongMemEval 官方 `evaluate_qa.py` 模板，逐字节相同 |
-| 跑分店 | `longmemeval_s_500_Hobs_entitysubj`,500 用户 / 235,840 条事实 |
-
-**每一条答案和每一条检索到的记忆都已公开**，见
-[`benchmarking/artifacts/`](../../benchmarking/artifacts/)——500 条逐字答案，
-8427 条证据。你可以用任意 judge 重新判分，也可以把我们检索到的上下文喂给
-你自己的 reader 看分数怎么变。两件事都不需要接触我们的任何服务。
-
-<div align="center">
-  <img src="../assets/benchmark-locomo.webp" alt="LoCoMo: SodaMem 86.88%, MemMachine 91.69%, Hindsight 89.61%, MIRIX 85.38%, Memobase 75.78%, Mem0 OSS 66.88%" width="720">
-</div>
-
-LoCoMo **86.88%（1338/1540）**。端到端问答准确率（end-to-end QA accuracy），
-由 LLM-as-judge 判分。
-
-| | |
-|---|---|
-| reader / planner / judge | `deepseek-v4-flash` |
-| 判分提示词 | LongMemEval 官方模板，逐字节复制 |
-| 跑分店 | `locomo10_Hobs`，10 个用户库 / 2,905 条 fact event |
-| 代码 | 一个预发布构建 —— 本仓库公开的历史从 v0.1.0 开始 |
-
-**LoCoMo 没有发布任何逐题产物** —— 没有 answers，没有检索上下文，没有 run 目录。
-公开的是
-[`benchmarking/README.md` 的 LoCoMo 一节](../../benchmarking/README.md#locomo-cat-1-4)：
-分类别拆分、逐会话分布、provenance 与复现步骤。
 
 ---
 

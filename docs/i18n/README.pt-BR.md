@@ -27,6 +27,51 @@ Cada memória sabe de qual turno da conversa veio, e a partir de quando deixou d
 
 ---
 
+## Benchmark
+
+<div align="center">
+  <img src="../assets/benchmark-longmemeval.webp" alt="LongMemEval: SodaMem 92.8%, Hindsight 91.4%, Mem0 OSS 91.0%" width="720">
+</div>
+
+**92,8% (464/500)** no LongMemEval.
+
+| | |
+|---|---|
+| reader / planner / judge | `deepseek-v4-flash` |
+| prompts de avaliação | os templates `evaluate_qa.py` do próprio benchmark, idênticos byte a byte |
+| store | `longmemeval_s_500_Hobs_entitysubj`, 500 usuários / 235.840 fatos |
+
+**Cada resposta e cada memória recuperada estão publicadas** em
+[`benchmarking/artifacts/`](../../benchmarking/artifacts/) — 500 respostas na
+íntegra e 8.427 evidências. Reavalie com o judge que preferir, ou entregue o
+contexto que recuperamos ao seu próprio reader e veja o que acontece com o
+número. Nenhum dos dois exige acesso a nada nosso.
+
+<div align="center">
+  <img src="../assets/benchmark-locomo.webp" alt="LoCoMo: SodaMem 86.88%, MemMachine 91.69%, Hindsight 89.61%, MIRIX 85.38%, Memobase 75.78%, Mem0 OSS 66.88%" width="720">
+</div>
+
+**86,88% (1338/1540)** no LoCoMo, categorias 1-4 — a categoria 5 (adversarial)
+fica de fora, ou seja, 1.540 das 1.986 perguntas. Acurácia de QA ponta a ponta,
+avaliada por LLM-as-judge.
+
+| | |
+|---|---|
+| reader / planner / judge | `deepseek-v4-flash` |
+| prompts de avaliação | os templates do próprio benchmark LongMemEval, copiados byte a byte |
+| store | `locomo10_Hobs`, 10 stores de usuário / 2.905 fact events |
+| code | uma build pré-lançamento — o histórico publicado começa em v0.1.0 |
+
+**Nenhum artefato por pergunta é publicado para o LoCoMo** — sem respostas, sem
+contexto recuperado, sem diretório de execução. O que está publicado é
+[a seção LoCoMo do `benchmarking/README.md`](../../benchmarking/README.md#locomo-cat-1-4):
+o detalhamento por categoria, a dispersão por conversa, a procedência e os
+passos de reprodução.
+
+---
+
+## Início rápido
+
 ```bash
 pip install "sodamem[chroma,llm]"
 ```
@@ -138,49 +183,6 @@ por um parâmetro da requisição.
 Mesma consulta, mesmo store, mesmo resultado, sempre. `/v1/events` registra cada
 inclusão, substituição e remoção com o motivo: "por que o agente esqueceu X?"
 tem resposta depois do fato.
-
----
-
-## Benchmark
-
-<div align="center">
-  <img src="../assets/benchmark-longmemeval.webp" alt="LongMemEval: SodaMem 92.8%, Hindsight 91.4%, Mem0 OSS 91.0%" width="720">
-</div>
-
-**92,8% (464/500)** no LongMemEval.
-
-| | |
-|---|---|
-| reader / planner / judge | `deepseek-v4-flash` |
-| prompts de avaliação | os templates `evaluate_qa.py` do próprio benchmark, idênticos byte a byte |
-| store | `longmemeval_s_500_Hobs_entitysubj`, 500 usuários / 235.840 fatos |
-
-**Cada resposta e cada memória recuperada estão publicadas** em
-[`benchmarking/artifacts/`](../../benchmarking/artifacts/) — 500 respostas na
-íntegra e 8.427 evidências. Reavalie com o judge que preferir, ou entregue o
-contexto que recuperamos ao seu próprio reader e veja o que acontece com o
-número. Nenhum dos dois exige acesso a nada nosso.
-
-<div align="center">
-  <img src="../assets/benchmark-locomo.webp" alt="LoCoMo: SodaMem 86.88%, MemMachine 91.69%, Hindsight 89.61%, MIRIX 85.38%, Memobase 75.78%, Mem0 OSS 66.88%" width="720">
-</div>
-
-**86,88% (1338/1540)** no LoCoMo, categorias 1-4 — a categoria 5 (adversarial)
-fica de fora, ou seja, 1.540 das 1.986 perguntas. Acurácia de QA ponta a ponta,
-avaliada por LLM-as-judge.
-
-| | |
-|---|---|
-| reader / planner / judge | `deepseek-v4-flash` |
-| prompts de avaliação | os templates do próprio benchmark LongMemEval, copiados byte a byte |
-| store | `locomo10_Hobs`, 10 stores de usuário / 2.905 fact events |
-| code | uma build pré-lançamento — o histórico publicado começa em v0.1.0 |
-
-**Nenhum artefato por pergunta é publicado para o LoCoMo** — sem respostas, sem
-contexto recuperado, sem diretório de execução. O que está publicado é
-[a seção LoCoMo do `benchmarking/README.md`](../../benchmarking/README.md#locomo-cat-1-4):
-o detalhamento por categoria, a dispersão por conversa, a procedência e os
-passos de reprodução.
 
 ---
 
