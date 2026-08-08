@@ -27,6 +27,49 @@
 
 ---
 
+## 벤치마크
+
+<div align="center">
+  <img src="../assets/benchmark-longmemeval.webp" alt="LongMemEval: SodaMem 92.8%, Hindsight 91.4%, Mem0 OSS 91.0%" width="720">
+</div>
+
+LongMemEval **92.8% (464/500)**.
+
+| | |
+|---|---|
+| reader / planner / judge | `deepseek-v4-flash` |
+| 채점 프롬프트 | LongMemEval 공식 `evaluate_qa.py` 템플릿, 바이트 단위 동일 |
+| 스토어 | `longmemeval_s_500_Hobs_entitysubj`, 500 사용자 / 235,840 팩트 |
+
+**모든 답변과 검색된 기억을 전부 공개합니다**
+([`benchmarking/artifacts/`](../../benchmarking/artifacts/)) — 500건의 답변 전문과
+8,427건의 근거. 원하는 judge 로 다시 채점하거나, 우리가 검색한 컨텍스트를 여러분의
+reader 에 넣어 숫자가 어떻게 달라지는지 확인할 수 있습니다. 어느 쪽도 우리 서비스에
+접근할 필요가 없습니다.
+
+<div align="center">
+  <img src="../assets/benchmark-locomo.webp" alt="LoCoMo: SodaMem 86.88%, MemMachine 91.69%, Hindsight 89.61%, MIRIX 85.38%, Memobase 75.78%, Mem0 OSS 66.88%" width="720">
+</div>
+
+LoCoMo **86.88% (1338/1540)**. 엔드투엔드 QA 정확도이고 채점은
+LLM-as-judge 입니다.
+
+| | |
+|---|---|
+| reader / planner / judge | `deepseek-v4-flash` |
+| 채점 프롬프트 | LongMemEval 공식 템플릿, 바이트 단위 복제 |
+| 스토어 | `locomo10_Hobs`, 사용자 스토어 10개 / 팩트 이벤트 2,905건 |
+| 코드 | 사전 릴리스 빌드 — 공개된 히스토리는 v0.1.0 부터 시작합니다 |
+
+**LoCoMo 는 문항별 산출물을 공개하지 않습니다** — 답변도, 검색된 컨텍스트도,
+run 디렉터리도 없습니다. 공개하는 것은
+[`benchmarking/README.md` 의 LoCoMo 절](../../benchmarking/README.md#locomo-cat-1-4)
+이며, 카테고리별 분해와 대화별 분포, provenance 및 재현 절차가 들어 있습니다.
+
+---
+
+## 빠른 시작
+
 ```bash
 pip install "sodamem[chroma,llm]"
 ```
@@ -133,47 +176,6 @@ date         = 2023-05-25
 
 같은 질의, 같은 스토어면 결과는 매번 같습니다. `/v1/events` 가 모든 추가·대체·삭제와
 그 이유를 기록하므로, "에이전트가 왜 X를 잊었는가"는 사후에 추적 가능한 질문입니다.
-
----
-
-## 벤치마크
-
-<div align="center">
-  <img src="../assets/benchmark-longmemeval.webp" alt="LongMemEval: SodaMem 92.8%, Hindsight 91.4%, Mem0 OSS 91.0%" width="720">
-</div>
-
-LongMemEval **92.8% (464/500)**.
-
-| | |
-|---|---|
-| reader / planner / judge | `deepseek-v4-flash` |
-| 채점 프롬프트 | LongMemEval 공식 `evaluate_qa.py` 템플릿, 바이트 단위 동일 |
-| 스토어 | `longmemeval_s_500_Hobs_entitysubj`, 500 사용자 / 235,840 팩트 |
-
-**모든 답변과 검색된 기억을 전부 공개합니다**
-([`benchmarking/artifacts/`](../../benchmarking/artifacts/)) — 500건의 답변 전문과
-8,427건의 근거. 원하는 judge 로 다시 채점하거나, 우리가 검색한 컨텍스트를 여러분의
-reader 에 넣어 숫자가 어떻게 달라지는지 확인할 수 있습니다. 어느 쪽도 우리 서비스에
-접근할 필요가 없습니다.
-
-<div align="center">
-  <img src="../assets/benchmark-locomo.webp" alt="LoCoMo: SodaMem 86.88%, MemMachine 91.69%, Hindsight 89.61%, MIRIX 85.38%, Memobase 75.78%, Mem0 OSS 66.88%" width="720">
-</div>
-
-LoCoMo **86.88% (1338/1540)**. 엔드투엔드 QA 정확도이고 채점은
-LLM-as-judge 입니다.
-
-| | |
-|---|---|
-| reader / planner / judge | `deepseek-v4-flash` |
-| 채점 프롬프트 | LongMemEval 공식 템플릿, 바이트 단위 복제 |
-| 스토어 | `locomo10_Hobs`, 사용자 스토어 10개 / 팩트 이벤트 2,905건 |
-| 코드 | 사전 릴리스 빌드 — 공개된 히스토리는 v0.1.0 부터 시작합니다 |
-
-**LoCoMo 는 문항별 산출물을 공개하지 않습니다** — 답변도, 검색된 컨텍스트도,
-run 디렉터리도 없습니다. 공개하는 것은
-[`benchmarking/README.md` 의 LoCoMo 절](../../benchmarking/README.md#locomo-cat-1-4)
-이며, 카테고리별 분해와 대화별 분포, provenance 및 재현 절차가 들어 있습니다.
 
 ---
 

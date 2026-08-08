@@ -27,6 +27,48 @@ Every memory can name the turn it came from, and knows when it stopped being tru
 
 ---
 
+## Benchmark
+
+<div align="center">
+  <img src="https://raw.githubusercontent.com/SodaMem/SodaMem/main/docs/assets/benchmark-longmemeval.webp" alt="LongMemEval: SodaMem 92.8%, Hindsight 91.4%, Mem0 OSS 91.0%" width="720">
+</div>
+
+**92.8% (464/500)** on LongMemEval.
+
+| | |
+|---|---|
+| reader / planner / judge | `deepseek-v4-flash` |
+| judge prompts | the LongMemEval benchmark's own `evaluate_qa.py` templates, byte-identical |
+| store | `longmemeval_s_500_Hobs_entitysubj`, 500 users / 235,840 facts |
+
+**Every answer and every retrieved memory is published** in
+[`benchmarking/artifacts/`](https://github.com/SodaMem/SodaMem/tree/main/benchmarking/artifacts/) — 500 answers verbatim,
+8,427 evidence rows. Re-grade them with any judge, or hand the retrieved
+context to your own reader and see what the number does. Neither needs access
+to anything of ours.
+
+<div align="center">
+  <img src="https://raw.githubusercontent.com/SodaMem/SodaMem/main/docs/assets/benchmark-locomo.webp" alt="LoCoMo: SodaMem 86.88%, MemMachine 91.69%, Hindsight 89.61%, MIRIX 85.38%, Memobase 75.78%, Mem0 OSS 66.88%" width="720">
+</div>
+
+**86.88% (1338/1540)** on LoCoMo. End-to-end QA accuracy, LLM-as-judge.
+
+| | |
+|---|---|
+| reader / planner / judge | `deepseek-v4-flash` |
+| judge prompts | the LongMemEval benchmark's own templates, byte-copied |
+| store | `locomo10_Hobs`, 10 user stores / 2,905 fact events |
+| code | a pre-release build — this repository's published history begins at v0.1.0 |
+
+**No per-question artifacts are published for LoCoMo** — no answers, no retrieved
+context, no run directory. What is published is
+[the LoCoMo section of `benchmarking/README.md`](https://github.com/SodaMem/SodaMem/blob/main/benchmarking/README.md#locomo-cat-1-4):
+the per-category breakdown, the per-conversation spread, provenance and repro steps.
+
+---
+
+## Quick start
+
 ```bash
 pip install "sodamem[chroma,llm]"
 ```
@@ -136,46 +178,6 @@ route cannot be flipped by a request parameter.
 Same query, same store, same result, every time. `/v1/events` records every
 add, supersede and delete with its reason, so *"why did the agent forget X"*
 is answerable after the fact instead of a shrug.
-
----
-
-## Benchmark
-
-<div align="center">
-  <img src="https://raw.githubusercontent.com/SodaMem/SodaMem/main/docs/assets/benchmark-longmemeval.webp" alt="LongMemEval: SodaMem 92.8%, Hindsight 91.4%, Mem0 OSS 91.0%" width="720">
-</div>
-
-**92.8% (464/500)** on LongMemEval.
-
-| | |
-|---|---|
-| reader / planner / judge | `deepseek-v4-flash` |
-| judge prompts | the LongMemEval benchmark's own `evaluate_qa.py` templates, byte-identical |
-| store | `longmemeval_s_500_Hobs_entitysubj`, 500 users / 235,840 facts |
-
-**Every answer and every retrieved memory is published** in
-[`benchmarking/artifacts/`](https://github.com/SodaMem/SodaMem/tree/main/benchmarking/artifacts/) — 500 answers verbatim,
-8,427 evidence rows. Re-grade them with any judge, or hand the retrieved
-context to your own reader and see what the number does. Neither needs access
-to anything of ours.
-
-<div align="center">
-  <img src="https://raw.githubusercontent.com/SodaMem/SodaMem/main/docs/assets/benchmark-locomo.webp" alt="LoCoMo: SodaMem 86.88%, MemMachine 91.69%, Hindsight 89.61%, MIRIX 85.38%, Memobase 75.78%, Mem0 OSS 66.88%" width="720">
-</div>
-
-**86.88% (1338/1540)** on LoCoMo. End-to-end QA accuracy, LLM-as-judge.
-
-| | |
-|---|---|
-| reader / planner / judge | `deepseek-v4-flash` |
-| judge prompts | the LongMemEval benchmark's own templates, byte-copied |
-| store | `locomo10_Hobs`, 10 user stores / 2,905 fact events |
-| code | a pre-release build — this repository's published history begins at v0.1.0 |
-
-**No per-question artifacts are published for LoCoMo** — no answers, no retrieved
-context, no run directory. What is published is
-[the LoCoMo section of `benchmarking/README.md`](https://github.com/SodaMem/SodaMem/blob/main/benchmarking/README.md#locomo-cat-1-4):
-the per-category breakdown, the per-conversation spread, provenance and repro steps.
 
 ---
 

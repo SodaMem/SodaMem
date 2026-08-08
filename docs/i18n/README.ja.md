@@ -27,6 +27,49 @@
 
 ---
 
+## ベンチマーク
+
+<div align="center">
+  <img src="../assets/benchmark-longmemeval.webp" alt="LongMemEval: SodaMem 92.8%, Hindsight 91.4%, Mem0 OSS 91.0%" width="720">
+</div>
+
+LongMemEval **92.8%（464/500）**。
+
+| | |
+|---|---|
+| reader / planner / judge | `deepseek-v4-flash` |
+| 判定プロンプト | LongMemEval 公式 `evaluate_qa.py` のテンプレート、バイト単位で同一 |
+| ストア | `longmemeval_s_500_Hobs_entitysubj`、500 ユーザー / 235,840 ファクト |
+
+**回答も、取得した記憶も、すべて公開しています**
+（[`benchmarking/artifacts/`](../../benchmarking/artifacts/)）——500 件の回答
+全文と 8,427 件の証拠。任意の judge で採点し直すことも、取得コンテキストを
+自前の reader に渡して数字がどう動くか確かめることもできます。どちらも当方の
+サービスへのアクセスは不要です。
+
+<div align="center">
+  <img src="../assets/benchmark-locomo.webp" alt="LoCoMo: SodaMem 86.88%, MemMachine 91.69%, Hindsight 89.61%, MIRIX 85.38%, Memobase 75.78%, Mem0 OSS 66.88%" width="720">
+</div>
+
+LoCoMo **86.88%（1338/1540）**。エンドツーエンドの QA 正解率、
+判定は LLM-as-judge。
+
+| | |
+|---|---|
+| reader / planner / judge | `deepseek-v4-flash` |
+| 判定プロンプト | LongMemEval 公式のテンプレート、バイト単位で複製 |
+| ストア | `locomo10_Hobs`、10 ユーザーストア / 2,905 ファクトイベント |
+| コード | プレリリースビルド —— 公開履歴は v0.1.0 から始まります |
+
+**LoCoMo については問題ごとの成果物を一切公開していません** —— 回答も、取得
+コンテキストも、run ディレクトリもありません。公開しているのは
+[`benchmarking/README.md` の LoCoMo セクション](../../benchmarking/README.md#locomo-cat-1-4)
+です。カテゴリ別の内訳、会話ごとの分布、provenance と再現手順が載っています。
+
+---
+
+## クイックスタート
+
 ```bash
 pip install "sodamem[chroma,llm]"
 ```
@@ -134,47 +177,6 @@ LLM オーガナイザ（value-board / enumeration-sweep）を走らせ、「知
 同じクエリ、同じストアなら結果は毎回同じです。`/v1/events` が追加・置換・削除
 とその理由をすべて記録するので、「なぜエージェントは X を忘れたのか」は後から
 辿れます。
-
----
-
-## ベンチマーク
-
-<div align="center">
-  <img src="../assets/benchmark-longmemeval.webp" alt="LongMemEval: SodaMem 92.8%, Hindsight 91.4%, Mem0 OSS 91.0%" width="720">
-</div>
-
-LongMemEval **92.8%（464/500）**。
-
-| | |
-|---|---|
-| reader / planner / judge | `deepseek-v4-flash` |
-| 判定プロンプト | LongMemEval 公式 `evaluate_qa.py` のテンプレート、バイト単位で同一 |
-| ストア | `longmemeval_s_500_Hobs_entitysubj`、500 ユーザー / 235,840 ファクト |
-
-**回答も、取得した記憶も、すべて公開しています**
-（[`benchmarking/artifacts/`](../../benchmarking/artifacts/)）——500 件の回答
-全文と 8,427 件の証拠。任意の judge で採点し直すことも、取得コンテキストを
-自前の reader に渡して数字がどう動くか確かめることもできます。どちらも当方の
-サービスへのアクセスは不要です。
-
-<div align="center">
-  <img src="../assets/benchmark-locomo.webp" alt="LoCoMo: SodaMem 86.88%, MemMachine 91.69%, Hindsight 89.61%, MIRIX 85.38%, Memobase 75.78%, Mem0 OSS 66.88%" width="720">
-</div>
-
-LoCoMo **86.88%（1338/1540）**。エンドツーエンドの QA 正解率、
-判定は LLM-as-judge。
-
-| | |
-|---|---|
-| reader / planner / judge | `deepseek-v4-flash` |
-| 判定プロンプト | LongMemEval 公式のテンプレート、バイト単位で複製 |
-| ストア | `locomo10_Hobs`、10 ユーザーストア / 2,905 ファクトイベント |
-| コード | プレリリースビルド —— 公開履歴は v0.1.0 から始まります |
-
-**LoCoMo については問題ごとの成果物を一切公開していません** —— 回答も、取得
-コンテキストも、run ディレクトリもありません。公開しているのは
-[`benchmarking/README.md` の LoCoMo セクション](../../benchmarking/README.md#locomo-cat-1-4)
-です。カテゴリ別の内訳、会話ごとの分布、provenance と再現手順が載っています。
 
 ---
 
