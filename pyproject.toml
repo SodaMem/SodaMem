@@ -37,9 +37,11 @@ dependencies = [
 # Must come after every plain [project] key: a table header ends the parent
 # table, so anything below it would be parsed as a URL entry instead.
 [project.urls]
-Homepage = "https://github.com/SodaMem/SodaMem"
+Homepage = "https://sodamem.com"
+Documentation = "https://sodamem.com/docs"
 Source = "https://github.com/SodaMem/SodaMem"
 Issues = "https://github.com/SodaMem/SodaMem/issues"
+Changelog = "https://github.com/SodaMem/SodaMem/blob/main/CHANGELOG.md"
 
 [project.optional-dependencies]
 chroma = ["chromadb>=0.6.0"]

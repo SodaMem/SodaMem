@@ -1,25 +1,25 @@
 <div align="center">
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/logo-dark.webp">
-  <img src="docs/assets/logo.webp" alt="SodaMem" width="260">
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/SodaMem/SodaMem/main/docs/assets/logo-dark.webp">
+  <img src="https://raw.githubusercontent.com/SodaMem/SodaMem/main/docs/assets/logo.webp" alt="SodaMem" width="260">
 </picture>
 
 **Evidence-grounded temporal memory for AI agents.**
 
 Every memory can name the turn it came from, and knows when it stopped being true.
 
-[![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
-[![Python](https://img.shields.io/badge/python-3.11%2B-blue.svg)](pyproject.toml)
-[![LongMemEval](https://img.shields.io/badge/LongMemEval-92.8%25-brightgreen.svg)](benchmarking/artifacts/)
-[![LoCoMo](https://img.shields.io/badge/LoCoMo-86.88%25-brightgreen.svg)](benchmarking/README.md#locomo-cat-1-4)
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](https://github.com/SodaMem/SodaMem/blob/main/LICENSE)
+[![Python](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://github.com/SodaMem/SodaMem/blob/main/pyproject.toml)
+[![LongMemEval](https://img.shields.io/badge/LongMemEval-92.8%25-brightgreen.svg)](https://github.com/SodaMem/SodaMem/tree/main/benchmarking/artifacts/)
+[![LoCoMo](https://img.shields.io/badge/LoCoMo-86.88%25-brightgreen.svg)](https://github.com/SodaMem/SodaMem/blob/main/benchmarking/README.md#locomo-cat-1-4)
 [![Discussions](https://img.shields.io/github/discussions/SodaMem/SodaMem?logo=github&label=discussions)](https://github.com/SodaMem/SodaMem/discussions)
 
 <!-- langs -->
-**English** · [简体中文](docs/i18n/README.zh-CN.md) · [日本語](docs/i18n/README.ja.md) · [한국어](docs/i18n/README.ko.md) · [Français](docs/i18n/README.fr.md) · [Español](docs/i18n/README.es.md) · [Deutsch](docs/i18n/README.de.md) · [Português](docs/i18n/README.pt-BR.md)
+**English** · [简体中文](https://github.com/SodaMem/SodaMem/blob/main/docs/i18n/README.zh-CN.md) · [日本語](https://github.com/SodaMem/SodaMem/blob/main/docs/i18n/README.ja.md) · [한국어](https://github.com/SodaMem/SodaMem/blob/main/docs/i18n/README.ko.md) · [Français](https://github.com/SodaMem/SodaMem/blob/main/docs/i18n/README.fr.md) · [Español](https://github.com/SodaMem/SodaMem/blob/main/docs/i18n/README.es.md) · [Deutsch](https://github.com/SodaMem/SodaMem/blob/main/docs/i18n/README.de.md) · [Português](https://github.com/SodaMem/SodaMem/blob/main/docs/i18n/README.pt-BR.md)
 <!-- /langs -->
 
-<img src="docs/assets/benchmark-cost-accuracy.webp" alt="Cost-accuracy trade-off on LongMemEval-S: SodaMem sits in the high-accuracy, low-cost quadrant" width="760">
+<img src="https://raw.githubusercontent.com/SodaMem/SodaMem/main/docs/assets/benchmark-cost-accuracy.webp" alt="Cost-accuracy trade-off on LongMemEval-S: SodaMem sits in the high-accuracy, low-cost quadrant" width="760">
 
 *Accuracy against estimated API cost per question. The quadrant that matters is up and to the left.*
 
@@ -142,7 +142,7 @@ is answerable after the fact instead of a shrug.
 ## Benchmark
 
 <div align="center">
-  <img src="docs/assets/benchmark-longmemeval.webp" alt="LongMemEval: SodaMem 92.8%, Hindsight 91.4%, Mem0 OSS 91.0%" width="720">
+  <img src="https://raw.githubusercontent.com/SodaMem/SodaMem/main/docs/assets/benchmark-longmemeval.webp" alt="LongMemEval: SodaMem 92.8%, Hindsight 91.4%, Mem0 OSS 91.0%" width="720">
 </div>
 
 **92.8% (464/500)** on LongMemEval.
@@ -154,13 +154,13 @@ is answerable after the fact instead of a shrug.
 | store | `longmemeval_s_500_Hobs_entitysubj`, 500 users / 235,840 facts |
 
 **Every answer and every retrieved memory is published** in
-[`benchmarking/artifacts/`](benchmarking/artifacts/) — 500 answers verbatim,
+[`benchmarking/artifacts/`](https://github.com/SodaMem/SodaMem/tree/main/benchmarking/artifacts/) — 500 answers verbatim,
 8,427 evidence rows. Re-grade them with any judge, or hand the retrieved
 context to your own reader and see what the number does. Neither needs access
 to anything of ours.
 
 <div align="center">
-  <img src="docs/assets/benchmark-locomo.webp" alt="LoCoMo: SodaMem 86.88%, MemMachine 91.69%, Hindsight 89.61%, MIRIX 85.38%, Memobase 75.78%, Mem0 OSS 66.88%" width="720">
+  <img src="https://raw.githubusercontent.com/SodaMem/SodaMem/main/docs/assets/benchmark-locomo.webp" alt="LoCoMo: SodaMem 86.88%, MemMachine 91.69%, Hindsight 89.61%, MIRIX 85.38%, Memobase 75.78%, Mem0 OSS 66.88%" width="720">
 </div>
 
 **86.88% (1338/1540)** on LoCoMo. End-to-end QA accuracy, LLM-as-judge.
@@ -174,7 +174,7 @@ to anything of ours.
 
 **No per-question artifacts are published for LoCoMo** — no answers, no retrieved
 context, no run directory. What is published is
-[the LoCoMo section of `benchmarking/README.md`](benchmarking/README.md#locomo-cat-1-4):
+[the LoCoMo section of `benchmarking/README.md`](https://github.com/SodaMem/SodaMem/blob/main/benchmarking/README.md#locomo-cat-1-4):
 the per-category breakdown, the per-conversation spread, provenance and repro steps.
 
 ---
@@ -210,7 +210,7 @@ curl -H "Authorization: Bearer $KEY" -H "Content-Type: application/json" \
 `/v1/context` and `/v1/search` both take a JSON body; `/v1/context` also
 answers a plain GET with query params, since it is a pure read.
 
-**SDKs** — TypeScript over HTTP ([`sdk-ts/`](sdk-ts/), zero runtime
+**SDKs** — TypeScript over HTTP ([`sdk-ts/`](https://github.com/SodaMem/SodaMem/tree/main/sdk-ts/), zero runtime
 dependencies, ESM + CJS). Python talks to the library directly — `import
 sodamem` and you are already past the network.
 
@@ -469,10 +469,10 @@ describes four rules CI enforces that the code itself does not announce.
 
 | | |
 |---|---|
-| [CONTRIBUTING.md](CONTRIBUTING.md) | setup, and the four things CI checks that you cannot guess from reading the source |
-| [SECURITY.md](SECURITY.md) | how to report a vulnerability privately, and where the trust boundary actually is |
-| [CHANGELOG.md](CHANGELOG.md) | what changed per release, and what pre-1.0 compatibility does and does not promise |
-| [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) | Contributor Covenant 2.1 |
+| [CONTRIBUTING.md](https://github.com/SodaMem/SodaMem/blob/main/CONTRIBUTING.md) | setup, and the four things CI checks that you cannot guess from reading the source |
+| [SECURITY.md](https://github.com/SodaMem/SodaMem/blob/main/SECURITY.md) | how to report a vulnerability privately, and where the trust boundary actually is |
+| [CHANGELOG.md](https://github.com/SodaMem/SodaMem/blob/main/CHANGELOG.md) | what changed per release, and what pre-1.0 compatibility does and does not promise |
+| [CODE_OF_CONDUCT.md](https://github.com/SodaMem/SodaMem/blob/main/CODE_OF_CONDUCT.md) | Contributor Covenant 2.1 |
 
 ## Acknowledgements
 
@@ -481,4 +481,4 @@ Thank you.
 
 ## License
 
-[Apache-2.0](LICENSE). Copyright 2026 FENGRONG WAN.
+[Apache-2.0](https://github.com/SodaMem/SodaMem/blob/main/LICENSE). Copyright 2026 FENGRONG WAN.
