@@ -1,4 +1,4 @@
-"""Slot binder advisories (v1.1: harder redeem/threshold preference)."""
+"""Slot binder advisories (v1.0: harder redeem/threshold preference)."""
 from __future__ import annotations
 
 from protocol_v1.schema import QuestionSchema
@@ -7,7 +7,7 @@ from protocol_v1.schema import QuestionSchema
 def slot_advisory(schema: QuestionSchema) -> str:
     if not schema.slot_name and not schema.modifiers:
         return ""
-    lines = ["protocol_v1.1 slot_binder:"]
+    lines = ["protocol_v1.0 slot_binder:"]
     if schema.slot_name == "redeem_threshold":
         lines.extend([
             "- HARD: Question asks how many points are needed to REDEEM a free product.",

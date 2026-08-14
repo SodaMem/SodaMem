@@ -40,7 +40,7 @@ def build_event_anchor_advisory(
     lo, hi = window_bounds(window)
     slot = _slot_kind(question)
     lines = [
-        "protocol_v1.3 event_anchor:",
+        "protocol_v1.0 event_anchor:",
         f"- Target slot to fill: {slot} (companion / object / place).",
     ]
     if lo:

@@ -118,6 +118,21 @@ is answerable after the fact instead of a shrug.
 
 ---
 
+## Agent integrations
+
+**SodaMem plugs into agent runtimes over MCP** — retain, recall, and context in the same memory store.
+
+| Runtime | Guide |
+|---|---|
+| **Hermes Agent** | [`HERMES_INTEGRATION.md`](HERMES_INTEGRATION.md) |
+| **DeepSeek Harness** | [`DEEPSEEK_HARNESS_INTEGRATION.md`](DEEPSEEK_HARNESS_INTEGRATION.md) |
+
+Also shipped: LangGraph, CrewAI, OpenAI Agents SDK, Vercel AI SDK
+([`adapters/`](adapters/)), MCP ([`mcp_server/`](mcp_server/)), and Claude Code /
+Cursor hooks via `sodamem install`.
+
+---
+
 ## Benchmark
 
 **93.6% (468/500)** on LongMemEval-S with **Protocol v1.0** (current headline).
@@ -134,30 +149,12 @@ answer and retrieved memory is in [`benchmarking/artifacts/`](benchmarking/artif
 
 **Two layers, one stack:** `sodamem` is the memory engine; **Protocol v1.0**
 is the answer-side discipline (question schema, keep-count cardinality, TR/MR
-skills) layered for LongMemEval. It is not a separate "SodaMem product 1.0
+advisories) layered for LongMemEval. It is not a separate "SodaMem product 1.0
 release" — the Python package version is in `pyproject.toml`.
 
 Reproduce the headline run: see [`benchmarking/protocol_v1.0/README.md`](benchmarking/protocol_v1.0/README.md).
 Re-grade published answers: [`benchmarking/artifacts/`](benchmarking/artifacts/) —
 500 answers verbatim, 8,427 evidence rows. Neither needs our services.
-
----
-
-## Agent integrations
-
-SodaMem is designed to sit beside agent runtimes — recall via `build_context`
-(zero LLM), retain via `ingest` / `add_memories`, scope via `project_id`.
-
-| Agent / harness | Status | Notes |
-|---|---|---|
-| **PI Agent** | _coming soon_ | MCP + HTTP; shared `user_id` / `project_id` |
-| **Hermes Agent** | _coming soon_ | long-horizon task memory via `add_memory` tool |
-| **DeepSeek Harness** | _coming soon_ | OpenAI-compatible reader; batch eval hooks |
-
-Shipped today: LangGraph, CrewAI, OpenAI Agents SDK, Vercel AI SDK
-([`adapters/`](adapters/)), MCP ([`mcp_server/`](mcp_server/)), Claude Code /
-Cursor hooks via `sodamem install`. Integration guides for the three agents
-above will land in `docs/integrations/`.
 
 ---
 

@@ -1,4 +1,4 @@
-"""MR/TR-aware protocol advisories for v1.3 (SetEnumeration + EventAnchor + OrderedTimeline)."""
+"""MR/TR-aware protocol advisories for v1.0 (SetEnumeration + EventAnchor + OrderedTimeline)."""
 from __future__ import annotations
 
 from typing import Any, Optional
@@ -41,7 +41,7 @@ def build_protocol_advisories(
     schema = parse_question_schema(question)
     card = extract_cardinality(question)
     advisories: list[str] = [
-        "protocol_v1.3 question_schema: "
+        "protocol_v1.0 question_schema: "
         f"task={schema.task} predicate={schema.predicate!r} "
         f"count_unit={schema.count_unit} axis={schema.axis} "
         f"slot={schema.slot_name!r} modifiers={list(schema.modifiers)} "
@@ -94,7 +94,7 @@ def build_protocol_advisories(
                 snip = " ".join(str(r.get("content") or r.get("text") or "").split())[:80]
                 out_snips.append(f"[{r.get('event_date') or '?'}] {snip}")
             advisories.append(
-                "protocol_v1.3 temporal_evidence_rank: "
+                "protocol_v1.0 temporal_evidence_rank: "
                 + pin_advisory(window, in_n=len(inn), out_n=len(out), out_snips=out_snips)
                 + " Prefer in-window dated rows; undated remain secondary; "
                 "out-of-window are distractors."
@@ -125,19 +125,19 @@ def build_protocol_advisories(
         and schema.task in {"SLOT_LOOKUP", "VERSIONED_ATTR"}
     ):
         advisories.append(
-            "protocol_v1.3 gated_slot_hard_bind: FINAL ANSWER MUST BE "
+            "protocol_v1.0 gated_slot_hard_bind: FINAL ANSWER MUST BE "
             f"{preferred} (high-confidence dual-candidate conflict)."
         )
         override = preferred
     elif preferred:
         advisories.append(
-            f"protocol_v1.3 slot_soft_prefer: prefer {preferred} but do not invent "
+            f"protocol_v1.0 slot_soft_prefer: prefer {preferred} but do not invent "
             "values absent from the conflict_board."
         )
 
     sg = sum_gate_advisory(schema, admitted, question=question)
     if sg:
-        advisories.append(sg.replace("protocol_v1.2", "protocol_v1.3"))
+        advisories.append(sg.replace("protocol_v1.0", "protocol_v1.0"))
 
     entity_names: list[str] | None = None
     if schema.count_unit == "entity" or (
@@ -213,14 +213,14 @@ def build_protocol_advisories(
     if card and schema.task in {"COUNT_DISTINCT", "ORDERED_LIST"}:
         from protocol_v1.set_enumeration import count_kept_admitted
 
-        # v1.5: keep-count only (no HARD_STOP). Plan-only must not inflate `have`.
+        # v1.0: keep-count only (no HARD_STOP). Plan-only must not inflate `have`.
         if schema.count_unit == "entity" and entity_names:
             have = len(entity_names)
         else:
             have = count_kept_admitted(admitted)
         if have < int(card):
             advisories.append(
-                f"protocol_v1.5 cardinality_finalize_gate: question asserts N={card} "
+                f"protocol_v1.0 cardinality_finalize_gate: question asserts N={card} "
                 f"but kept/entity set size={have} (plan-only excluded from keep-count). "
                 "Do NOT finalize a complete answer; continue search or state the set "
                 "is incomplete."
@@ -244,7 +244,7 @@ def build_protocol_advisories(
             snip = " ".join(str(it.get("content") or "").split())[:140]
             lines.append(f"{i}. [{d}] {snip}")
         advisories.append(
-            "protocol_v1.3 admitted_set (prefer these after gate+dedupe):\n"
+            "protocol_v1.0 admitted_set (prefer these after gate+dedupe):\n"
             + "\n".join(lines)
         )
 

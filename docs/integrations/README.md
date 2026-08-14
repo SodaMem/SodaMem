@@ -1,12 +1,10 @@
 # Agent integrations
 
-Placeholder for third-party agent runtimes. Guides will be added per platform.
-
-| Agent / harness | Integration path | Status |
+| Agent / harness | Guide | Status |
 |---|---|---|
-| [PI Agent](https://github.com/) | `docs/integrations/pi-agent.md` | _coming soon_ |
-| [Hermes Agent](https://github.com/) | `docs/integrations/hermes-agent.md` | _coming soon_ |
-| [DeepSeek Harness](https://github.com/) | `docs/integrations/deepseek-harness.md` | _coming soon_ |
+| **Hermes Agent** | [`../../HERMES_INTEGRATION.md`](../../HERMES_INTEGRATION.md) | Ready |
+| **DeepSeek Harness** | [`../../DEEPSEEK_HARNESS_INTEGRATION.md`](../../DEEPSEEK_HARNESS_INTEGRATION.md) | Ready |
+| PI Agent | — | Coming soon |
 
 Common wiring pattern:
 

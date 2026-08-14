@@ -1,4 +1,4 @@
-"""Public apply entry for Protocol v1.3."""
+"""Public apply entry for Protocol v1.0."""
 from __future__ import annotations
 
 from protocol_v1.patches import apply, is_applied

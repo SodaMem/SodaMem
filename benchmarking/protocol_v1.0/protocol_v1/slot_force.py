@@ -1,4 +1,4 @@
-"""v1.2 SlotHardBind — extract competing slot values; prefer question-named slot."""
+"""v1.0 SlotHardBind — extract competing slot values; prefer question-named slot."""
 from __future__ import annotations
 
 import re
@@ -157,7 +157,7 @@ def slot_hard_decision(
                 "answer_text": str(redeem),
                 "reason": f"slot_hard redeem={redeem} goal={goal}",
                 "advisory": (
-                    "protocol_v1.2 slot_hard_bind: FINAL ANSWER MUST BE "
+                    "protocol_v1.0 slot_hard_bind: FINAL ANSWER MUST BE "
                     f"{redeem} (redeem/threshold). "
                     + (
                         f"Do NOT answer personal goal {goal}."
@@ -179,7 +179,7 @@ def slot_hard_decision(
                 "answer_text": new_s,
                 "reason": f"slot_hard new_speed={new_s} current={cur_s}",
                 "advisory": (
-                    "protocol_v1.2 slot_hard_bind: Question asks NEW plan speed. "
+                    "protocol_v1.0 slot_hard_bind: Question asks NEW plan speed. "
                     f"FINAL ANSWER MUST BE {new_s}. "
                     + (f"Ignore current-status {cur_s}." if cur_s else "")
                 ),

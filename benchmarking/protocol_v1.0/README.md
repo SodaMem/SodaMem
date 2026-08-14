@@ -1,20 +1,68 @@
-# Protocol v1.0 (LongMemEval-S answer protocol)
+# SodaMem Protocol v1.0
 
-**Headline score: 468/500 (93.6%)** on LongMemEval-S with store
-`longmemeval_s_500_Hobs_entitysubj`, model `deepseek-v4-flash`.
+LongMemEval-S **answer-side protocol** on top of SodaMem + Plan B+ (`sodamem_opt`).
 
-> Formerly internal code name **Protocol v1.5**. Soft / earlier protocol
-> experiments are treated as **0.x** and are not shipped here.
+| | |
+|---|---|
+| **Headline** | **468/500 (93.6%)** |
+| **Store** | `longmemeval_s_500_Hobs_entitysubj` |
+| **Model** | `deepseek-v4-flash` |
+| **Layer** | Protocol only — does **not** replace the SodaMem memory engine |
 
-This directory is **not** a separate product release. It is the **answer-side
-protocol** that stacks on SodaMem + `sodamem_opt` (Plan B+) for benchmark
-runs. The memory engine lives in `sodamem/`; this tree only patches planner /
-reader discipline (question schema, keep-count cardinality, TR/MR skills, etc.).
+Soft / earlier stacks are treated as **0.x (~461/500)**.
 
-See `METHOD.md` for design notes and `RESULTS_S500.md` for the scorecard.
-Archived summary: `ARCHIVE_S500/summary.json`.
+---
 
-## Run (from repo root)
+## What v1.0 improves vs Soft (Plan B+)
+
+Soft already fixed many temporal / count misses. Protocol v1.0 adds **question-schema routing** and **task-specific advisories** so the planner/reader follow structured discipline instead of jumping to a bare integer.
+
+| Strength | What it does | Typical win |
+|---|---|---|
+| **Question schema** | Classify IE / TR / MR / KU / ABS into tasks (`COUNT_DISTINCT`, `ORDERED_LIST`, `SUM`, `SLOT_LOOKUP`, …) | Routes the right tools and advisories |
+| **Keep-count cardinality** | `have` = kept admitted items; **no HARD_STOP** when `have < N` | Soft gate only — avoids Soft-era over-abstention while still pushing enumeration |
+| **SetEnumeration (MR)** | Force `item_list` (date + quote) before count/sum; mark plan-only rows | Cuts “guess N” and plan-only pollution on set questions |
+| **Saturation queries** | Schema-driven extra searches at step-0 / capability calls | Pulls missing evidence for undercount / incomplete lists |
+| **OrderedTimeline (TR/MR)** | Build `(entity, date)` rows; sort ascending before order answers | Trip / event order |
+| **EventAnchor + day pin (TR)** | Pin absolute day; fill who/which/from-whom only in-window | “Last Saturday / two weeks ago” companion & place |
+| **Conflict / slot board** | Dual candidates + local cue for versioned attributes | Points redeem vs balance, latest vs “new plan” |
+| **Sum money-role gate** | Charity/raise vs housing/other-spend | Totals without mortgage/workshop noise |
+| **Entity dedup** | Merge repeated mentions for distinct counts | Entity-level how-many |
+
+**Score delta (same store / model family):** Soft ~**461** → Protocol v1.0 **468** (+7). Category card: see [`RESULTS_S500.md`](RESULTS_S500.md).
+
+---
+
+## Layout
+
+```
+benchmarking/protocol_v1.0/
+├── README.md
+├── METHOD.md
+├── RESULTS_S500.md
+├── ARCHIVE_S500/
+├── protocol_v1/
+└── run_protocol_s500.py
+```
+
+Agent integration guides live at the repo root:
+
+- [`HERMES_INTEGRATION.md`](../../HERMES_INTEGRATION.md)
+- [`DEEPSEEK_HARNESS_INTEGRATION.md`](../../DEEPSEEK_HARNESS_INTEGRATION.md)
+
+---
+
+## Prerequisites
+
+1. SodaMem product install (this repository)
+2. `sodamem_opt` (Plan B+) — Protocol `apply()` stacks Soft first, then Protocol
+3. Bench store + `DEEPSEEK_API_KEY` (or `SODAMEM_LLM_API_KEY`) for the 500-run
+
+Protocol code alone does not ingest or store memory; it patches the **answer** path.
+
+---
+
+## Run LongMemEval-S (headline path)
 
 ```bash
 export SODAMEM_REPO="$(pwd)"
@@ -24,20 +72,20 @@ export DEEPSEEK_API_KEY=...
 
 cd benchmarking/protocol_v1.0
 python run_protocol_s500.py \
-  --only ../eval_s500_all.json \
-  --range 1-250 \
-  --out ./results_shard \
-  --concurrency 6 \
-  --question-timeout 600 \
-  --heartbeat-stale 300
+  --only /path/to/eval_ids.json \
+  --out ./results_s500 \
+  --concurrency 6
 ```
 
-`--range START-END` slices by question number (`q001`…`q500`, inclusive).
+`SODAMEM_PROTOCOL_V1_ROOT` is set to this directory by the runner. You can also call:
 
-## Layout
+```python
+from protocol_v1 import apply
+apply()  # Soft (sodamem_opt) then Protocol v1.0
+```
 
-| path | role |
-|------|------|
-| `protocol_v1/` | patches applied via `SODAMEM_PROTOCOL_V1_ROOT` |
-| `skill/set_enumeration/` | MR enumeration skill |
-| `run_protocol_s500.py` | runner (sets env + calls `sodamem_opt.run_frozen`) |
+---
+
+## License
+
+Apache-2.0 (same as this repository).

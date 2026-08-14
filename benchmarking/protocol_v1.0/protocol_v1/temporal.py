@@ -1,4 +1,4 @@
-"""Temporal grounding + axis advisories (v1.1 day-pin)."""
+"""Temporal grounding + axis advisories (v1.0 day-pin)."""
 from __future__ import annotations
 
 from protocol_v1.schema import QuestionSchema
@@ -11,7 +11,7 @@ def temporal_advisory(
     absolute_window: dict | None = None,
 ) -> str:
     lines = [
-        "protocol_v1.1 temporal_grounding:",
+        "protocol_v1.0 temporal_grounding:",
         f"- task={schema.task} axis={schema.axis}",
     ]
     if schema.time_window_raw:

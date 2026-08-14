@@ -1,4 +1,4 @@
-"""Build set_enumeration_board advisory from admitted evidence (MR skill helper)."""
+"""Build set_enumeration_board advisory from admitted evidence (MR)."""
 from __future__ import annotations
 
 import re
@@ -55,7 +55,7 @@ def build_set_enumeration_board(
 
     card = extract_cardinality(question)
     lines = [
-        "set_enumeration_board (SetEnumeration skill):",
+        "set_enumeration_board:",
         "- Write an item_list first; then derive the count/sum from that list only.",
     ]
     if card:

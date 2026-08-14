@@ -45,7 +45,7 @@ def build_conflict_board(
     ):
         redeem, goal = extract_redeem_vs_goal(blob)
         if redeem is not None or goal is not None:
-            lines.append("protocol_v1.3 conflict_board (points slots):")
+            lines.append("protocol_v1.0 conflict_board (points slots):")
             if redeem is not None:
                 lines.append(
                     f"  - candidate value={redeem} slot=redeem_threshold "
@@ -97,7 +97,7 @@ def build_conflict_board(
     ):
         new_s, cur_s = extract_new_vs_current_speed(blob)
         if new_s or cur_s:
-            lines.append("protocol_v1.3 conflict_board (versioned attr):")
+            lines.append("protocol_v1.0 conflict_board (versioned attr):")
             if new_s:
                 lines.append(
                     f"  - candidate value={new_s} slot=new_plan "

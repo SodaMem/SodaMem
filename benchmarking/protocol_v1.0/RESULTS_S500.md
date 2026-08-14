@@ -10,4 +10,6 @@
 | MR | 103/121 |
 | TR | 118/127 |
 
-原代号 v1.5 → 现 **v1.0**。对照 Soft ~461/500。
+**Baseline:** Soft / Plan B+ ≈ **461/500**. Protocol v1.0 (keep-count) = **468/500**.
+
+Machine-readable summary: [`ARCHIVE_S500/summary.json`](ARCHIVE_S500/summary.json).

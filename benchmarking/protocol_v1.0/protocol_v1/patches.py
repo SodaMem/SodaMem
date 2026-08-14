@@ -1,4 +1,4 @@
-"""Monkey-patches: stack Protocol v1.3 on Soft / Plan B+."""
+"""Monkey-patches: stack Protocol v1.0 on Soft / Plan B+."""
 from __future__ import annotations
 
 import threading
@@ -9,7 +9,7 @@ _APPLIED = False
 _TLS = threading.local()
 
 V1_PLANNER_ADDENDUM = """
-Protocol v1.3 retrieval discipline (schema-routed + skills):
+Protocol v1.0 retrieval discipline (schema-routed):
 - Parse the question into a task before finalizing.
 - MR SetEnumeration: for how-many/total set questions, enumerate an item_list
   (date + quote per item) before counting/summing; keep searching if N asserted
@@ -27,7 +27,7 @@ Protocol v1.3 retrieval discipline (schema-routed + skills):
 """
 
 V1_READER_GUIDANCE = (
-    " Protocol v1.3: Obey protocol_v1.3 advisories and SetEnumeration boards. "
+    " Protocol v1.0: Obey protocol_v1.0 advisories and SetEnumeration boards. "
     "If set_enumeration_board is present, count/sum from that item_list only. "
     "If ordered_timeline is present, sort (entity, date) before answering order. "
     "If event_anchor is present, fill who/which only from the pinned day. "
@@ -38,7 +38,7 @@ V1_READER_GUIDANCE = (
 )
 
 V1_CONSTRAINTS = [
-    "Follow protocol_v1.3 advisories; honor gated_slot_hard_bind when present.",
+    "Follow protocol_v1.0 advisories; honor gated_slot_hard_bind when present.",
     "SetEnumeration: enumerate items before how-many/total; do not finalize if have < N.",
     "OrderedTimeline: answer order only from dated (entity, date) rows sorted ascending.",
     "EventAnchor: who/which/from-whom must come from the pinned absolute day.",
@@ -65,7 +65,7 @@ def _pop_override() -> Optional[str]:
 
 
 def apply() -> None:
-    """Apply Soft (Plan B+) first, then Protocol v1.3 + SetEnumeration skill."""
+    """Apply Soft (Plan B+) first, then Protocol v1.0."""
     global _APPLIED
     if _APPLIED:
         return
@@ -73,20 +73,6 @@ def apply() -> None:
     from sodamem_opt.patches import apply as opt_apply
 
     opt_apply()
-
-    # MR SetEnumeration skill (lives under Version/v1.3/skill/set_enumeration)
-    try:
-        from pathlib import Path
-        import sys
-
-        skill_root = Path(__file__).resolve().parents[1] / "skill" / "set_enumeration"
-        if skill_root.is_dir() and str(skill_root) not in sys.path:
-            sys.path.insert(0, str(skill_root))
-        from set_enumeration_skill.apply import apply as apply_set_enum
-
-        apply_set_enum()
-    except Exception:
-        pass
 
     import sodamem.answer as answer_pkg
     import sodamem.answer.reader as reader_mod
@@ -260,7 +246,7 @@ def apply() -> None:
         if override:
             text = (
                 f"{override}\n\n"
-                f"(protocol_v1.3 gated_slot_hard_bind: answer fixed to "
+                f"(protocol_v1.0 gated_slot_hard_bind: answer fixed to "
                 f"question slot = {override})"
             )
             return Answer(

@@ -9,15 +9,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 ### Added
 
 - `benchmarking/protocol_v1.0/` — LongMemEval-S **Protocol v1.0** (headline **468/500**):
-  question-schema stack, keep-count cardinality, SetEnumeration skill, TR anchors.
+  question-schema stack, keep-count cardinality, SetEnumeration / TR / slot advisories.
+- `sodamem_opt/` — Plan B+ answer-side patches used by Protocol v1.0.
+- `HERMES_INTEGRATION.md` / `DEEPSEEK_HARNESS_INTEGRATION.md` — MCP integration guides.
+- `examples/sodamem-dsh.patch.yml`, `scripts/sodamem_mcp_warm.py` — DeepSeek Harness helpers.
 - `benchmarking/run_s500.py` — `--range START-END` for sharded 500-question runs.
 - `docs/PUBLISHING.md` — what to push to GitHub and how to sync Protocol v1.0.
-- `docs/integrations/` — placeholder for PI Agent, Hermes Agent, DeepSeek Harness.
 
 ### Changed
 
-- README: headline **93.6% (468/500)**; clarify product vs Protocol layer; agent
-  integration table; install URL `github.com/SodaMem/SodaMem`.
+- README: headline **93.6% (468/500)**; Agent integrations section links Hermes /
+  DeepSeek Harness guides; clarify product vs Protocol layer.
 
 ### Benchmark notes
 

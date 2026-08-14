@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run Soft∪v1.1∪v1.2 miss union X (62) under Protocol v1.3."""
+"""Run LongMemEval-S under Protocol v1.0 (Plan B+ then protocol advisories)."""
 from __future__ import annotations
 
 import argparse
@@ -64,26 +64,20 @@ def _load_dotenv(path: Path) -> None:
 
 def main() -> int:
     v_root = Path(__file__).resolve().parent
-    default_out = str(v_root / "results_union_x")
-    default_only = str(v_root / "union_x_ids.json")
+    default_out = str(v_root / "results_s500")
 
-    ap = argparse.ArgumentParser(description="Protocol v1.3 on union X (62)")
+    ap = argparse.ArgumentParser(description="Protocol v1.0 LongMemEval-S runner")
     ap.add_argument("--concurrency", type=int, default=6)
     ap.add_argument("--out", default=default_out)
-    ap.add_argument("--only", default=default_only)
+    ap.add_argument("--only", required=True, help="JSON list or line file of eval_ids")
     ap.add_argument(
         "--question-timeout",
         type=int,
         default=600,
         help="hard per-question wall clock (default 600s)",
     )
-    ap.add_argument(
-        "--heartbeat-stale",
-        type=int,
-        default=180,
-        help="kill if no heartbeat for N seconds (default 180)",
-    )
-    ap.add_argument("--no-error-retry", action="store_true")
+    ap.add_argument("--count", type=int, default=0, help="limit (0 = all)")
+    ap.add_argument("--category", default="", help="optional LongMemEval category filter")
     args = ap.parse_args()
 
     out_dir = Path(args.out)
@@ -92,49 +86,11 @@ def main() -> int:
     else:
         out_dir = out_dir.resolve()
     out_dir.mkdir(parents=True, exist_ok=True)
-    # Hot dir (results_*) contends under Windows; keep a cool copy of console
-    # lines next to status_s500 so mid-run status never opens results_*.
-    cool_log = v_root / f"_progress_{out_dir.name}.log"
     log_fp = open(
         out_dir / "console.log", "a", encoding="utf-8", errors="replace", buffering=1
     )
-    cool_fp = open(cool_log, "a", encoding="utf-8", errors="replace", buffering=1)
-
-    class _MultiTee(_Tee):
-        def __init__(self, stream, *logs):
-            self._stream = stream
-            self._logs = logs
-            self._lock = threading.Lock()
-
-        def write(self, data: str) -> int:
-            with self._lock:
-                try:
-                    self._stream.write(data)
-                    self._stream.flush()
-                except Exception:
-                    pass
-                for lg in self._logs:
-                    try:
-                        lg.write(data)
-                        lg.flush()
-                    except Exception:
-                        pass
-            return len(data) if isinstance(data, str) else 0
-
-        def flush(self) -> None:
-            with self._lock:
-                try:
-                    self._stream.flush()
-                except Exception:
-                    pass
-                for lg in self._logs:
-                    try:
-                        lg.flush()
-                    except Exception:
-                        pass
-
-    sys.stdout = _MultiTee(sys.__stdout__, log_fp, cool_fp)  # type: ignore[assignment]
-    sys.stderr = _MultiTee(sys.__stderr__, log_fp, cool_fp)  # type: ignore[assignment]
+    sys.stdout = _Tee(sys.__stdout__, log_fp)  # type: ignore[assignment]
+    sys.stderr = _Tee(sys.__stderr__, log_fp)  # type: ignore[assignment]
 
     repo = (
         Path(os.environ.get("SODAMEM_REPO", "")).expanduser()
@@ -142,11 +98,8 @@ def main() -> int:
         else None
     )
     if repo is None or not (repo / "benchmarking" / "run_s500.py").exists():
-        # Vendored in repo: benchmarking/protocol_v1.0/run_protocol_s500.py
+        # Vendored layout: benchmarking/protocol_v1.0/run_protocol_s500.py
         candidate = v_root.parents[1]
-        if not (candidate / "benchmarking" / "run_s500.py").exists():
-            # Agent Memory Project layout: Version/v1.0 beside project/
-            candidate = v_root.parents[1] / "project" / "SodaMem-dev-main"
         if (candidate / "benchmarking" / "run_s500.py").exists():
             repo = candidate
         else:
@@ -155,14 +108,27 @@ def main() -> int:
                 "(directory containing benchmarking/run_s500.py)"
             )
 
-    ws = repo.parent.parent if repo.parent.name == "project" else repo.parent
-    _load_dotenv(ws / "api" / ".env")
-    if not (ws / "api" / ".env").is_file():
-        _load_dotenv(repo / ".env")
+    _load_dotenv(repo / ".env")
     if not os.environ.get("DEEPSEEK_API_KEY") and not os.environ.get(
         "SODAMEM_LLM_API_KEY"
     ):
-        raise SystemExit(f"Missing DEEPSEEK_API_KEY in {ws / 'api' / '.env'}")
+        raise SystemExit(
+            "Missing DEEPSEEK_API_KEY or SODAMEM_LLM_API_KEY "
+            "(set it in the environment or the SodaMem repo .env file)"
+        )
+    if not os.environ.get("DEEPSEEK_API_KEY") and os.environ.get("SODAMEM_LLM_API_KEY"):
+        os.environ["DEEPSEEK_API_KEY"] = os.environ["SODAMEM_LLM_API_KEY"]
+
+    if not os.environ.get("SODAMEM_BENCH_STORES"):
+        raise SystemExit(
+            "Set SODAMEM_BENCH_STORES to the frozen LongMemEval store root "
+            "(directory of <user_id>/memory.db)"
+        )
+    if not os.environ.get("SODAMEM_BENCH_DATA"):
+        raise SystemExit(
+            "Set SODAMEM_BENCH_DATA to the bench-data directory "
+            "(questions_slim.json, etc.)"
+        )
 
     os.environ["SODAMEM_REPO"] = str(repo)
     os.environ.setdefault("SODAMEM_ANSWER_TIME_WINDOW", "1")
@@ -172,34 +138,10 @@ def main() -> int:
     os.environ["SODAMEM_OPT_APPLY"] = "1"
     os.environ["SODAMEM_PROTOCOL_V1"] = "1"
     os.environ["SODAMEM_PROTOCOL_V1_ROOT"] = str(v_root)
-    os.environ.pop("SODAMEM_STRUCT_APPLY", None)
     os.environ.setdefault("SODAMEM_BENCH_MODEL", "deepseek-v4-flash")
     os.environ.setdefault("SODAMEM_BENCH_BASE_URL", "https://api.deepseek.com/v1")
     os.environ.setdefault("PYTHONUTF8", "1")
     os.environ.setdefault("PYTHONIOENCODING", "utf-8")
-    # Parent + worker DNS pin when system getaddrinfo fails for api.deepseek.com.
-    os.environ.setdefault("SODAMEM_FORCE_DEEPSEEK_DNS", "1")
-    try:
-        import _force_deepseek_dns  # noqa: F401
-    except ImportError:
-        bench = repo / "benchmarking"
-        if str(bench) not in sys.path:
-            sys.path.insert(0, str(bench))
-        import _force_deepseek_dns  # noqa: F401
-
-    stores = ws / "data" / "longmemeval_s_500_Hobs_entitysubj"
-    if stores.is_dir():
-        os.environ["SODAMEM_BENCH_STORES"] = str(stores)
-    else:
-        raise SystemExit(f"Missing stores: {stores}")
-
-    for cand in (
-        ws / "project" / "sodamem_databack" / "bench-data",
-        ws / "sodamem_databack" / "bench-data",
-    ):
-        if cand.is_dir() and not os.environ.get("SODAMEM_BENCH_DATA"):
-            os.environ["SODAMEM_BENCH_DATA"] = str(cand)
-            break
 
     sep = os.pathsep
     prior = os.environ.get("PYTHONPATH", "").strip()
@@ -213,35 +155,42 @@ def main() -> int:
     from protocol_v1.apply import apply
 
     apply()
+
     only_path = Path(args.only)
     if not only_path.is_file():
         raise SystemExit(f"missing --only file: {only_path}")
     print(
-        f"[protocol_v1.3 union X] root={v_root}\n"
-        f"  only={only_path} (62)\n"
-        f"  out={args.out}\n"
+        f"[protocol_v1.0] root={v_root}\n"
+        f"  only={only_path}\n"
+        f"  out={out_dir}\n"
         f"  model={os.environ.get('SODAMEM_BENCH_MODEL')}\n"
         f"  stores={os.environ.get('SODAMEM_BENCH_STORES')}",
         flush=True,
     )
 
-    from sodamem_opt import run_frozen
+    import run_s500
 
     argv = [
         "--only",
         str(only_path.resolve()),
         "--out",
-        args.out,
+        str(out_dir),
         "--concurrency",
         str(args.concurrency),
         "--question-timeout",
         str(args.question_timeout),
-        "--heartbeat-stale",
-        str(args.heartbeat_stale),
     ]
-    if args.no_error_retry:
-        argv.append("--no-error-retry")
-    return run_frozen.main(argv)
+    if args.count:
+        argv.extend(["--count", str(args.count)])
+    if args.category:
+        argv.extend(["--category", args.category])
+    # run_s500.main() parses sys.argv
+    old_argv = sys.argv
+    try:
+        sys.argv = ["run_s500.py", *argv]
+        return int(run_s500.main() or 0)
+    finally:
+        sys.argv = old_argv
 
 
 if __name__ == "__main__":

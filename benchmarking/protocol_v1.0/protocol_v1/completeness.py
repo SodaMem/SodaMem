@@ -1,4 +1,4 @@
-"""Completeness / conflict check text for reader (v1.1 + cardinality)."""
+"""Completeness / conflict check text for reader (v1.0 + cardinality)."""
 from __future__ import annotations
 
 from typing import Any, Optional
@@ -15,7 +15,7 @@ def completeness_advisory(
     cardinality: Optional[int] = None,
     entity_names: Optional[list[str]] = None,
 ) -> str:
-    lines = ["protocol_v1.1 completeness_check:"]
+    lines = ["protocol_v1.0 completeness_check:"]
     if schema.needs_saturation:
         lines.append(
             f"- Set task: admitted={len(admitted)} raw_roster={raw_roster_n}. "

@@ -30,7 +30,7 @@ def build_ordered_timeline_advisory(
 
     card = extract_cardinality(question)
     lines = [
-        "protocol_v1.3 ordered_timeline:",
+        "protocol_v1.0 ordered_timeline:",
         "- Build a table of (entity, event_date) for every matching visit/trip/"
         "flight BEFORE stating order.",
         "- Sort by event_date ascending; the answer is that ordered entity list.",

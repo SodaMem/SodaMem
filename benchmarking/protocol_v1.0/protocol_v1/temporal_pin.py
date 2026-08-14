@@ -1,4 +1,4 @@
-"""v1.3 TemporalEvidenceRank — rank in-window evidence; keep undated visible."""
+"""v1.0 TemporalEvidenceRank — rank in-window evidence; keep undated visible."""
 from __future__ import annotations
 
 import re

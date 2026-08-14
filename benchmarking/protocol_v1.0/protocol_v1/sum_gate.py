@@ -1,4 +1,4 @@
-"""v1.2 light SUM predicate gate — drop amounts whose context mismatches question."""
+"""v1.0 light SUM predicate gate — drop amounts whose context mismatches question."""
 from __future__ import annotations
 
 import re
@@ -65,7 +65,7 @@ def sum_gate_advisory(
             except ValueError:
                 pass
     lines = [
-        "protocol_v1.3 sum_money_role_gate:",
+        "protocol_v1.0 sum_money_role_gate:",
         "- Tag each dollar amount with a role: raise/donate vs housing vs other-spend.",
         "- Question is charity/fundraising total → sum ONLY raise/donate roles.",
         "- EXCLUDE housing/mortgage/down-payment and unlabeled large non-charity amounts.",

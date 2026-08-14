@@ -1,4 +1,4 @@
-"""Enumeration saturation — extra queries / labels from schema (v1.1)."""
+"""Enumeration saturation — extra queries / labels from schema (v1.0)."""
 from __future__ import annotations
 
 from typing import Optional
