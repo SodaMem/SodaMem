@@ -42,6 +42,7 @@ jobs:
     runs-on: ubuntu-latest
     environment: release
     permissions:
+      contents: read
       # OIDC trusted publishing. No PyPI API token lives in repo secrets: a
       # stored token is a standing credential that can publish any version at
       # any time from anywhere, while this one is minted per run, scoped to
@@ -53,7 +54,7 @@ jobs:
       - run: uv build
       # `twine check` catches a malformed README before PyPI renders it as a
       # wall of raw markup on the page every launch visitor lands on.
-      - run: uv pip install twine && uv run twine check dist/*
+      - run: uv venv && uv pip install twine && uv run twine check dist/*
       - uses: pypa/gh-action-pypi-publish@release/v1
 
   npm:
@@ -61,6 +62,7 @@ jobs:
     runs-on: ubuntu-latest
     environment: release
     permissions:
+      contents: read
       id-token: write
     defaults:
       run:

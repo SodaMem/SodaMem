@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+## [0.1.0] — 2026-08-14
+
 ### Added
 
 - `benchmarking/protocol_v1.0/` — LongMemEval-S **Protocol v1.0** (headline **468/500**):

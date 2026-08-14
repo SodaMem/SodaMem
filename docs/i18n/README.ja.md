@@ -8,7 +8,7 @@
 
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](../../LICENSE)
 [![Python](https://img.shields.io/badge/python-3.11%2B-blue.svg)](../../pyproject.toml)
-[![LongMemEval](https://img.shields.io/badge/LongMemEval--S-92.8%25-brightgreen.svg)](../../benchmarking/artifacts/)
+[![LongMemEval](https://img.shields.io/badge/LongMemEval--S-93.6%25-brightgreen.svg)](../../benchmarking/protocol_v1.0/)
 
 <!-- langs -->
 [English](../../README.md) · [简体中文](README.zh-CN.md) · **日本語** · [한국어](README.ko.md) · [Français](README.fr.md) · [Español](README.es.md) · [Deutsch](README.de.md) · [Português](README.pt-BR.md)
@@ -118,7 +118,7 @@ LLM オーガナイザ（value-board / enumeration-sweep）を走らせ、「知
 
 ## ベンチマーク
 
-LongMemEval-S **92.8%（464/500）**。
+LongMemEval-S **93.6%（468/500）** — **Protocol v1.0** headline。公開 artifact は **92.8%（464/500）**。
 
 | | |
 |---|---|

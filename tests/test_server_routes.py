@@ -495,13 +495,29 @@ def test_no_v1_route_handler_is_a_coroutine_function():
     # so a scan of the app's route table silently finds zero v1 handlers and
     # passes no matter what. `router.routes` is public, stable, and is the
     # thing these modules actually define.
+    # Every module under server/routes that exposes a `router`, discovered
+    # rather than listed. The hand-written list this replaces named four
+    # modules and missed `graph.py`, whose three handlers were `async def`
+    # with no `await` in them — blocking store I/O on the loop, which is the
+    # exact thing this test exists to forbid.
+    import importlib
     import inspect
+    import pkgutil
 
-    from server.routes import context, jobs, memories, search
+    import server.routes as routes_pkg
+
+    modules = []
+    for info in pkgutil.iter_modules(routes_pkg.__path__):
+        if info.name.startswith("_"):
+            continue
+        module = importlib.import_module(f"server.routes.{info.name}")
+        if hasattr(module, "router"):
+            modules.append(module)
+    assert len(modules) >= 8, f"route discovery found only {len(modules)}"
 
     offenders = [
         f"{route.path} -> {route.endpoint.__name__}"
-        for module in (memories, search, context, jobs)
+        for module in modules
         for route in module.router.routes
         if inspect.iscoroutinefunction(route.endpoint)
     ]
@@ -1002,3 +1018,40 @@ def test_dream_refuses_scope_keys_rather_than_ignoring_them(client):
     be silently dropped, which is the failure mode this project refuses."""
     r = client.post("/v1/maintenance/dream", json={"user_id": "u1", "agent_id": "a1"})
     assert r.status_code == 501, r.text
+
+
+# ---------------------------------------------------------------------------
+# Every error, one envelope — including the two nobody raises by hand
+# ---------------------------------------------------------------------------
+
+def test_router_404_and_405_use_the_same_envelope_as_everything_else(client):
+    """`server/app.py` says it normalizes every error onto ErrorBody. Until
+    0806 that was false for exactly two responses, and they were the two a
+    client is most likely to hit first.
+
+    The handler was registered for `fastapi.HTTPException`, which SUBCLASSES
+    `starlette.exceptions.HTTPException`. A handler on the subclass catches
+    only what route code raises by hand; the router's own "no route matched"
+    (404) and "wrong method" (405) are raised as the PARENT and went straight
+    to Starlette's default `{"detail": ...}`. So the one guarantee the API
+    makes about error shape was broken by the two errors that need no code to
+    produce."""
+    for response in (client.get("/v1/definitely-not-a-route"),
+                     client.delete("/v1/context")):
+        assert response.status_code in (404, 405), response.text
+        body = response.json()
+        assert set(body) == {"code", "message", "details"}, body
+        assert body["code"] in ("not_found", "method_not_allowed"), body
+
+
+def test_every_error_status_maps_to_a_named_code(client):
+    """`http_error` is the fallback, not an outcome any reachable status
+    should produce — a client switching on `code` gets no information from
+    it."""
+    seen = {
+        client.get("/v1/definitely-not-a-route").json()["code"],
+        client.delete("/v1/context").json()["code"],
+        client.post("/v1/search", json={}).json()["code"],
+        client.get("/v1/events", params={"user_id": "u", "agent_id": "a"}).json()["code"],
+    }
+    assert "http_error" not in seen, seen
