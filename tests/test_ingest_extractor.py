@@ -393,13 +393,29 @@ class _SystemCapturingProvider(LLMProvider):
         return {}
 
 
-# A parity test lived here pinning that COARSE_RULES never reached the
-# assembled prompt. The constant was deleted 0806 — it was gated behind
-# INGEST_EXTRACT_COARSE (default OFF, no store ever built with it) and lost
-# its A/B on hard-47. Asserting that a deleted string is absent proves
-# nothing. What pins the assembly is
-# tests/test_extraction_prompt.py's assertion that the system prompt equals
-# EXTRACT_SYSTEM_PROMPT + DETERMINISM_RULES exactly.
+def test_extraction_system_prompt_matches_production_no_coarse_rules():
+    """Parity pin (audit 0723, drift #7): COARSE_RULES was gated behind
+    INGEST_EXTRACT_COARSE which defaulted OFF with no config.toml override —
+    the S500-winning H+obs stores were built WITHOUT it, and the C (coarse)
+    extraction route measurably LOST on hard-47 (H 24 > BASE 21 > C 18). The
+    port made it unconditional, silently promoting an untested-losing prompt
+    variant to the product default. The extraction system prompt must be
+    exactly EXTRACT + DETERMINISM.
+
+    (R2.7 changed the CONTENT of EXTRACT_SYSTEM_PROMPT to drop the domain
+    vocabulary — see tests/test_extraction_prompt.py — but not its assembly,
+    which this pins.)"""
+    from sodamem.prompts.extraction import (
+        COARSE_RULES,
+        DETERMINISM_RULES,
+        EXTRACT_SYSTEM_PROMPT,
+    )
+    provider = _SystemCapturingProvider()
+    extractor = FactEventExtractorV2(provider)
+    extractor._extract_single("some window prompt")
+    assert provider.systems, "extractor never called the provider"
+    assert provider.systems[0] == EXTRACT_SYSTEM_PROMPT + DETERMINISM_RULES
+    assert COARSE_RULES not in provider.systems[0]
 
 
 class _SubjectCapture(LLMProvider):

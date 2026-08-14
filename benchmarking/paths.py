@@ -1,9 +1,9 @@
 """External data locations for the benchmark rig.
 
 Nothing under `benchmarking/` may carry LongMemEval content. The dataset is a
-third-party corpus with its own license, and committing its questions and gold
-answers would put this repository's redistribution rights in question over
-material it does not own and does not need to ship. The scripts read the data
+third-party corpus, and this repository's public release is already blocked on
+one attribution question (COPYRIGHT_TODO.md) — committing benchmark questions
+and gold answers would add a second, avoidable one. The scripts read the data
 from wherever the operator put it; the repository holds only the code.
 
 Every path comes from an environment variable and every miss RAISES. The rig
@@ -73,7 +73,7 @@ def questions_slim() -> Path:
     return path
 
 
-def anchor_labels() -> Path | None:
+def anchor_labels() -> Path:
     """Anchor run labels for the paired McNemar comparison.
 
     Optional by design: without it a run still scores, it just cannot report a

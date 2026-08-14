@@ -22,7 +22,7 @@ disagrees with the request aborts on the first question
 (`_assert_model_not_substituted`). Thinking is explicitly disabled both sides
 (v4-flash defaults ON, which can eat the judge's max_tokens=10 budget with
 reasoning tokens). Runs against the 0713 anchor are CROSS-MODEL — McNemar
-there is informative, not a same-model paired gate. This run also carries the bug #8-#11 fixes: forced step-0
+there is informative, not a same-model paired gate. This run also carries the bug #8-#11 fixes (d5ae1c7): forced step-0
 search no longer fails, step-0 planner consult + state_update restored,
 saw_search/saw_compute keys restored, CLI JS-number rendering emulated.
 
@@ -153,6 +153,9 @@ ABSTENTION_GATE = os.environ.get("SODAMEM_ANSWER_ABSTENTION_GATE", "0") == "1"
 # 0730 count arm: surface evidence_count's deduplicated, date-ordered roster
 # in the planner payload (see sodamem/tools/__init__.py::_count_roster).
 COUNT_ROSTER = os.environ.get("SODAMEM_ANSWER_COUNT_ROSTER", "1") == "1"
+# 0730 temporal arm: resolve the question's relative date into an explicit
+# window in code (see sodamem/answer/timewords.py).
+TIME_WINDOW = os.environ.get("SODAMEM_ANSWER_TIME_WINDOW", "0") == "1"
 # 0730 preference arm: lead with personalization, hard-check anti-preferences
 # (see sodamem/prompts/reader.py::READER_GUIDANCE_PERSONALIZATION_ADDENDUM).
 PERSONALIZATION_BIAS = os.environ.get("SODAMEM_READER_PERSONALIZATION", "0") == "1"
@@ -315,6 +318,7 @@ def _all_arms() -> list[tuple[str, object, object]]:
         # The arms.
         ("abstention_gate", PlannerConfig, ABSTENTION_GATE),
         ("count_roster", PlannerConfig, COUNT_ROSTER),
+        ("time_window", PlannerConfig, TIME_WINDOW),
         ("capture_planner_input", PlannerConfig, CAPTURE_INPUT),
         ("claim_evidence_autofill", PlannerConfig, CLAIM_AUTOFILL),
         ("stall_stop", PlannerConfig, STALL_STOP),
@@ -443,6 +447,23 @@ def load_arm(arm_dir, *, allow_incomplete: bool = False) -> list[dict]:
     return rows
 
 
+def _read_jsonl_text(path: Path) -> str:
+    """Read answers.jsonl written under either UTF-8 or legacy Windows GBK."""
+    raw = path.read_bytes()
+    if not raw:
+        return ""
+    try:
+        return raw.decode("utf-8")
+    except UnicodeDecodeError:
+        # Pre-fix runs on Chinese Windows often wrote with the locale codec.
+        for enc in ("gb18030", "gbk", "cp936"):
+            try:
+                return raw.decode(enc)
+            except UnicodeDecodeError:
+                continue
+        return raw.decode("utf-8", errors="replace")
+
+
 def load_previous_answers(path) -> tuple[dict, dict]:
     """Split a prior run's answers.jsonl into (resumable, failed).
 
@@ -461,7 +482,7 @@ def load_previous_answers(path) -> tuple[dict, dict]:
     path = Path(path)
     if not path.exists():
         return done, errored
-    for line in open(path):
+    for line in _read_jsonl_text(path).splitlines():
         try:
             row = json.loads(line)
         except json.JSONDecodeError:
@@ -532,8 +553,8 @@ def answer_one(item: dict, api_key: str) -> dict:
     # whole max_tokens budget on terse/JSON outputs.
     # User directive: thinking OFF for this run. Explicit, not left to the
     # server default — factory.create_provider() has no thinking knob (that's
-    # `create_provider()` has no thinking knob, so set the tri-state flag
-    # directly on the provider.
+    # only wired for create_provider_for_model()'s registry path), so set the
+    # tri-state flag directly, same as sodamem/llm/factory.py:164 does.
     provider._thinking = False
     # `with`, not a bare open: chroma's PersistentClient holds ~8 FDs plus a
     # started rust System per store, and this rig opens one store PER QUESTION.
@@ -558,7 +579,7 @@ def answer_one(item: dict, api_key: str) -> dict:
             planner_max_tokens=PLANNER_MAX_TOKENS,
             temperature=TEMPERATURE, fallback_top_k=FALLBACK_TOP_K,
             abstention_gate=ABSTENTION_GATE, count_roster=COUNT_ROSTER,
-            capture_planner_input=CAPTURE_INPUT,
+            time_window=TIME_WINDOW, capture_planner_input=CAPTURE_INPUT,
             claim_evidence_autofill=CLAIM_AUTOFILL,
             stall_stop=STALL_STOP, truncation_retry=TRUNC_RETRY,
             prompt_cache_layout=CACHE_LAYOUT, short_evidence_ids=SHORT_IDS,
@@ -619,6 +640,7 @@ def answer_one(item: dict, api_key: str) -> dict:
         "membership_bias": MEMBERSHIP_BIAS,
         "abstention_gate": ABSTENTION_GATE,
         "count_roster": COUNT_ROSTER,
+        "time_window": TIME_WINDOW,
         "personalization_bias": PERSONALIZATION_BIAS,
         "capture_planner_input": CAPTURE_INPUT,
         "claim_evidence_autofill": CLAIM_AUTOFILL,
@@ -661,16 +683,57 @@ def load_only_ids(path: str) -> set[str]:
     return keep
 
 
+def parse_q_range(spec: str) -> tuple[int, int]:
+    """Parse inclusive 1-based question numbers: ``1-300``, ``51-100``.
+
+    Matches ``eval_id`` forms like ``q051`` / ``q51`` (leading zeros optional).
+    """
+    raw = (spec or "").strip()
+    if not raw:
+        raise SystemExit("--range: empty (expected START-END, e.g. 1-300)")
+    if raw.count("-") != 1:
+        raise SystemExit(
+            f"--range {spec!r}: expected START-END with one hyphen "
+            f"(e.g. 1-300 or 51-100)"
+        )
+    left, right = raw.split("-", 1)
+    try:
+        lo, hi = int(left.strip()), int(right.strip())
+    except ValueError as e:
+        raise SystemExit(
+            f"--range {spec!r}: START and END must be integers"
+        ) from e
+    if lo < 1 or hi < 1:
+        raise SystemExit(f"--range {spec!r}: numbers must be >= 1")
+    if hi < lo:
+        raise SystemExit(f"--range {spec!r}: END ({hi}) < START ({lo})")
+    return lo, hi
+
+
+def eval_id_number(eval_id: str) -> int | None:
+    """``q051`` / ``Q51`` → 51; non-numeric ids → None."""
+    s = str(eval_id).strip()
+    if len(s) >= 2 and s[0] in "qQ":
+        s = s[1:]
+    try:
+        return int(s)
+    except ValueError:
+        return None
+
+
+def filter_by_q_range(questions: list, lo: int, hi: int) -> list:
+    """Keep questions whose eval_id number is in ``[lo, hi]`` inclusive."""
+    out = []
+    for q in questions:
+        n = eval_id_number(q.get("eval_id", ""))
+        if n is not None and lo <= n <= hi:
+            out.append(q)
+    return out
+
+
 def mcnemar_exact(b: int, c: int) -> float:
     """Two-sided exact binomial on discordant pairs (b=anchor-only-correct,
-    c=new-only-correct).
-
-    `n == 0` returns 1.0, and that is the right answer to the only question
-    this function can see: no discordant pairs is no evidence of a difference.
-    It cannot see whether there were any PAIRS at all — an empty comparison
-    reaches here as b=c=0 and comes back looking like a clean null result. That
-    distinction lives at the call site, so `_paired_stats()` refuses to call
-    this when `paired_n == 0`."""
+    c=new-only-correct)."""
     n = b + c
     if n == 0:
         return 1.0
@@ -679,70 +742,24 @@ def mcnemar_exact(b: int, c: int) -> float:
     return min(1.0, 2 * tail)
 
 
-def _load_anchor(path: Path | None) -> tuple[dict[str, bool], dict | None]:
-    """(labels, provenance-or-None) for the paired McNemar comparison.
-
-    The summary's `anchor` field used to be a string literal, which meant it
-    described whichever run the literal was typed for and nothing else: a run
-    with NO anchor file on disk still announced it had been compared against
-    entitysubj, next to `paired_n: 0`. The hand-copied score inside it had also
-    already drifted from the anchor file's own self-description — every
-    transcribed provenance eventually does, which is the reason this is derived
-    instead of written down.
-
-    Everything below is read off the file that was actually opened. `None`
-    means no file was, and that is the only way `anchor` becomes null.
-    """
-    if path is None:
-        return {}, None
-    raw = json.load(open(path))
-    # Two shapes in the wild: the legacy anchor is a bare {eval_id: bool}, the
-    # consensus anchor wraps its labels under "labels" beside provenance
-    # fields. Reading the wrapper as labels would match zero eval_ids and
-    # degrade SILENTLY to "no paired comparison" — a run that looks fine and
-    # reports nothing.
-    labels = raw["labels"] if isinstance(raw.get("labels"), dict) else raw
-    labels = {k: v for k, v in labels.items() if isinstance(v, bool)}
-    return labels, {
-        "file": path.name,
-        "path": str(path.resolve()),
-        "n_labels": len(labels),
-        # The anchor file's own `_what`, passed through verbatim. Summarising
-        # or re-wording it here would recreate the literal this replaced: a
-        # second copy of the file's story, free to disagree with it. Legacy
-        # anchors carry no metadata, so this is None for them.
-        "note": raw.get("_what"),
-    }
-
-
-def _paired_stats(anchor: dict[str, bool], labels: dict[str, bool]) -> dict:
-    """The summary's four paired-comparison fields, from this run's labels.
-
-    `paired_n == 0` yields `mcnemar_exact_p: None`, not 1.0. The pair
-    (`paired_n: 0`, `mcnemar_exact_p: 1.0`) is the worst reading in the file —
-    neither field is wrong alone, and together they say "we tested and found no
-    difference" about a comparison that never happened. The gate is `paired_n`
-    rather than `b + c` precisely because `b + c == 0` WITH pairs is a real
-    result and has to keep its 1.0.
-    """
-    paired = {e: (anchor[e], labels[e]) for e in labels if e in anchor}
-    b = sum(1 for a, n in paired.values() if a and not n)   # anchor-only correct
-    c = sum(1 for a, n in paired.values() if n and not a)   # new-only correct
-    return {
-        "paired_n": len(paired),
-        "anchor_only_correct": b,
-        "new_only_correct": c,
-        "mcnemar_exact_p": round(mcnemar_exact(b, c), 4) if paired else None,
-    }
-
-
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--count", type=int, default=0, help="limit (0 = all)")
     ap.add_argument("--concurrency", type=int, default=6)
     ap.add_argument("--out", default=str(HERE / "results" / "s500_sodamem_regression_0724_v4flash"))
-    ap.add_argument("--question-timeout", type=int, default=600,
-                    help="hard per-question wall-clock cap in seconds (subprocess-killed on expiry)")
+    ap.add_argument(
+        "--question-timeout",
+        type=int,
+        default=int(os.environ.get("SODAMEM_QUESTION_TIMEOUT", "240")),
+        help="hard per-question wall-clock cap in seconds (default 240; was 600)",
+    )
+    ap.add_argument(
+        "--heartbeat-stale",
+        type=int,
+        default=int(os.environ.get("SODAMEM_HEARTBEAT_STALE", "90")),
+        help="kill worker if heartbeat file not refreshed for this many seconds "
+             "(0 disables; default 90). Worker pulses before/after each LLM call.",
+    )
     ap.add_argument("--category", default="",
                     help="restrict to one LongMemEval category (IE/TR/MR/KU/ABS)")
     ap.add_argument("--only", default="",
@@ -752,6 +769,16 @@ def main() -> int:
                          "stable-right regression sample resolve a targeted "
                          "arm at 1/13 the cost of a full 500, where the "
                          "±8-12 noise floor would swallow the effect.")
+    ap.add_argument(
+        "--range",
+        dest="q_range",
+        default="",
+        help="inclusive question-number slice, e.g. 1-300 or 51-100 "
+             "(matches eval_id q001..q500). Combines with --only / "
+             "--category as an intersection. For splitting one 500-run "
+             "across machines, use different --out dirs then merge "
+             "answers.jsonl.",
+    )
     args = ap.parse_args()
 
     # Presence check only — the key is used in the subprocess worker, which
@@ -778,12 +805,29 @@ def main() -> int:
     if args.only:
         keep = load_only_ids(args.only)
         questions = [q for q in questions if q["eval_id"] in keep]
-    anchor, anchor_provenance = _load_anchor(_paths.anchor_labels())
+    if args.q_range:
+        lo, hi = parse_q_range(args.q_range)
+        questions = filter_by_q_range(questions, lo, hi)
+        if not questions:
+            raise SystemExit(
+                f"--range {args.q_range}: no questions left after filter "
+                f"(check --only / stores / numbering)"
+            )
+    _anchor_path = _paths.anchor_labels()
+    # Two shapes in the wild: the legacy anchor is a bare {eval_id: bool}, the
+    # consensus anchor wraps its labels under "labels" beside provenance
+    # fields. Reading the wrapper as labels would match zero eval_ids and
+    # degrade SILENTLY to "no paired comparison" — a run that looks fine and
+    # reports nothing.
+    anchor = json.load(open(_anchor_path)) if _anchor_path else {}
+    if isinstance(anchor.get("labels"), dict):
+        anchor = anchor["labels"]
+    anchor = {k: v for k, v in anchor.items() if isinstance(v, bool)}
     context_offload_supported = _accepts_keyword(PlannerConfig, "context_offload")
     context_offload_effective = CONTEXT_OFFLOAD and context_offload_supported
     print(f"ARM role_timeline={ROLE_TIMELINE} answer_bias={ANSWER_BIAS} "
           f"membership_bias={MEMBERSHIP_BIAS} abstention_gate={ABSTENTION_GATE} "
-          f"count_roster={COUNT_ROSTER} "
+          f"count_roster={COUNT_ROSTER} time_window={TIME_WINDOW} "
           f"personalization={PERSONALIZATION_BIAS} stall_stop={STALL_STOP} "
           f"truncation_retry={TRUNC_RETRY} cache_layout={CACHE_LAYOUT} "
           f"short_ids={SHORT_IDS} autocall={CAPABILITY_AUTOCALL} "
@@ -792,6 +836,7 @@ def main() -> int:
           f"context_offload_supported={context_offload_supported} "
           f"stall_thresholds=dup{STALL_DUP_THRESHOLD}/zero{STALL_ZERO_THRESHOLD}  "
           f"category={args.category or 'ALL'}  "
+          f"range={args.q_range or 'ALL'}  "
           f"out={args.out}", flush=True)
 
     done, previously_errored = load_previous_answers(answers_path)
@@ -802,27 +847,195 @@ def main() -> int:
 
     lock = threading.Lock()
     worker_script = str(HERE / "answer_one_question.py")
+    hb_dir = out_dir / "_heartbeats"
+    hb_dir.mkdir(parents=True, exist_ok=True)
+    question_timeout = max(30, int(args.question_timeout))
+    heartbeat_stale = max(0, int(args.heartbeat_stale))
+    print(
+        f"timeouts: question={question_timeout}s heartbeat_stale="
+        f"{heartbeat_stale or 'off'}s",
+        flush=True,
+    )
+
+    def _kill_worker(proc: subprocess.Popen) -> None:
+        try:
+            proc.kill()
+        except OSError:
+            pass
+        if sys.platform == "win32" and proc.pid:
+            # Ensure grandchildren die too (httpx / SDK threads won't, but
+            # orphaned console children sometimes do).
+            try:
+                subprocess.run(
+                    ["taskkill", "/F", "/T", "/PID", str(proc.pid)],
+                    capture_output=True,
+                    timeout=10,
+                )
+            except Exception:
+                pass
+
+    def _run_worker(eval_id: str) -> tuple[str, str, int | None, str | None]:
+        """Return (stdout, stderr, returncode, error_tag).
+
+        error_tag is set when we killed for TIMEOUT / HEARTBEAT_STALE.
+
+        Continuously drain stdout/stderr while waiting — otherwise a finished
+        worker blocked on a full PIPE can look like HEARTBEAT_STALE (stage
+        stays at ``done`` and never exits).
+        """
+        hb_path = hb_dir / f"{eval_id}.json"
+        try:
+            if hb_path.exists():
+                hb_path.unlink()
+        except OSError:
+            pass
+        hb_path.write_text(
+            json.dumps({"t": time.time(), "stage": "spawn"}),
+            encoding="utf-8",
+        )
+        env = os.environ.copy()
+        env["SODAMEM_HEARTBEAT_PATH"] = str(hb_path)
+        # Also write the final JSON line to a sidecar file so a pipe stall
+        # cannot lose a completed answer.
+        result_path = hb_dir / f"{eval_id}.result.json"
+        env["SODAMEM_RESULT_PATH"] = str(result_path)
+        try:
+            if result_path.exists():
+                result_path.unlink()
+        except OSError:
+            pass
+
+        proc = subprocess.Popen(
+            [sys.executable, worker_script, "--eval-id", eval_id],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            env=env,
+        )
+        out_chunks: list[str] = []
+        err_chunks: list[str] = []
+
+        def _drain(stream, bucket: list[str]) -> None:
+            try:
+                while True:
+                    chunk = stream.read(4096)
+                    if not chunk:
+                        break
+                    bucket.append(chunk)
+            except Exception:
+                pass
+
+        t_out = threading.Thread(
+            target=_drain, args=(proc.stdout, out_chunks), daemon=True
+        )
+        t_err = threading.Thread(
+            target=_drain, args=(proc.stderr, err_chunks), daemon=True
+        )
+        t_out.start()
+        t_err.start()
+
+        deadline = time.time() + question_timeout
+        kill_reason: str | None = None
+        while True:
+            rc = proc.poll()
+            if rc is not None:
+                break
+            # Completed answer already on disk — stop waiting on the process.
+            if result_path.is_file() and result_path.stat().st_size > 2:
+                break
+            now = time.time()
+            if now >= deadline:
+                _kill_worker(proc)
+                kill_reason = f"TIMEOUT after {question_timeout}s (subprocess killed)"
+                break
+            if heartbeat_stale > 0:
+                last = 0.0
+                stage = ""
+                try:
+                    meta = json.loads(hb_path.read_text(encoding="utf-8"))
+                    last = float(meta.get("t") or 0)
+                    stage = str(meta.get("stage") or "")
+                except Exception:
+                    last = 0.0
+                    stage = ""
+                # After worker finished answering, do not treat quiet heartbeat
+                # as a hang (flush / judge teardown can be quiet).
+                if stage in {"done", "judge_begin"}:
+                    pass
+                elif last > 0 and (now - last) > heartbeat_stale:
+                    _kill_worker(proc)
+                    kill_reason = (
+                        f"HEARTBEAT_STALE after {heartbeat_stale}s "
+                        f"(stage={stage or '?'}; subprocess killed)"
+                    )
+                    break
+            time.sleep(1.0)
+
+        try:
+            proc.wait(timeout=15)
+        except Exception:
+            _kill_worker(proc)
+        t_out.join(timeout=5)
+        t_err.join(timeout=5)
+        stdout = "".join(out_chunks)
+        stderr = "".join(err_chunks)
+        # Prefer sidecar result if stdout empty but worker finished.
+        if (not stdout.strip()) and result_path.is_file():
+            try:
+                stdout = result_path.read_text(encoding="utf-8")
+                kill_reason = None  # recovered completed answer
+            except OSError:
+                pass
+        return stdout or "", stderr or "", proc.returncode, kill_reason
 
     def work(item: dict) -> dict:
         eval_id = item["eval_id"]
         row = dict(item)
         try:
-            proc = subprocess.run(
-                [sys.executable, worker_script, "--eval-id", eval_id],
-                capture_output=True, text=True, timeout=args.question_timeout,
-            )
-            # answer_one_question.py's contract: exactly one JSON line on stdout.
-            stdout_line = proc.stdout.strip().splitlines()[-1] if proc.stdout.strip() else ""
-            if not stdout_line:
-                row["error"] = f"empty subprocess stdout (rc={proc.returncode}): {proc.stderr[-300:]}"
+            stdout, stderr, rc, kill_reason = _run_worker(eval_id)
+            row_parsed = None
+            parse_err = None
+            if stdout.strip():
+                try:
+                    row_parsed, _end = json.JSONDecoder().raw_decode(stdout.strip())
+                except json.JSONDecodeError as e:
+                    parse_err = e
+                    flat = (
+                        stdout.replace("\u2028", " ")
+                        .replace("\u2029", " ")
+                        .strip()
+                    )
+                    candidates = [
+                        ln.strip()
+                        for ln in flat.splitlines()
+                        if ln.strip().startswith("{") and ln.strip().endswith("}")
+                    ]
+                    if candidates:
+                        try:
+                            row_parsed = json.loads(candidates[-1])
+                            parse_err = None
+                        except json.JSONDecodeError as e2:
+                            parse_err = e2
+            if row_parsed is not None and isinstance(row_parsed, dict):
+                # Prefer a completed answer even if we also tripped a kill race.
+                row = row_parsed
+                if row.get("error"):
+                    pass
+                elif kill_reason and not row.get("judge"):
+                    row["error"] = kill_reason
+            elif kill_reason:
+                row["error"] = kill_reason
+            elif not stdout.strip():
+                row["error"] = (
+                    f"empty subprocess stdout (rc={rc}): {stderr[-300:]}"
+                )
             else:
-                row = json.loads(stdout_line)
-        except subprocess.TimeoutExpired:
-            # subprocess.run already killed the child (and its process group is
-            # NOT separately created here, so any grandchild the SDK/httpx spawns
-            # could in principle survive — none observed in practice; the openai
-            # SDK is pure-Python/asyncio, no subprocesses of its own).
-            row["error"] = f"TIMEOUT after {args.question_timeout}s (subprocess killed)"
+                row["error"] = (
+                    f"JSONDecodeError: {parse_err} | rc={rc} | "
+                    f"stdout_head={stdout[:200]!r} | stderr_tail={stderr[-200:]!r}"
+                )
         except Exception as e:
             row["error"] = f"{type(e).__name__}: {e}"
         # The raw trace is split off before the row is written. Keeping it in
@@ -832,15 +1045,62 @@ def main() -> int:
         # about why the planner chose that, which is in its own output.
         raw = row.pop("_raw_trace", None)
         with lock:
-            with open(answers_path, "a") as f:
+            # Windows defaults to locale encoding (often GBK); hypothesis text
+            # can contain ¥ / − / emoji which are not encodable there.
+            with open(answers_path, "a", encoding="utf-8") as f:
                 f.write(json.dumps(row, ensure_ascii=False) + "\n")
             if raw is not None:
-                with gzip.open(raw_trace_path, "at") as f:
+                with gzip.open(raw_trace_path, "at", encoding="utf-8") as f:
                     f.write(json.dumps({"eval_id": row["eval_id"], "trace": raw},
                                        ensure_ascii=False) + "\n")
         return row
 
     n_done = 0
+    # Tiny sidecar on the *parent* of --out so status never touches the hot
+    # results dir (answers.jsonl / _heartbeats contend heavily on Windows).
+    live_path = out_dir.parent / f"_live_{out_dir.name}.json"
+    live_lock = threading.Lock()
+    resume_ok = sum(
+        1 for r in done.values() if bool((r.get("judge") or {}).get("label"))
+    )
+    resume_miss = len(done) - resume_ok
+    live = {
+        "total": len(questions),
+        "resume_done": len(done),
+        "resume_ok": resume_ok,
+        "resume_miss": resume_miss,
+        "todo": len(todo),
+        "pass_ok": 0,
+        "pass_miss": 0,
+        "pass_err": 0,
+        "pass_done": 0,
+        "ok": resume_ok,
+        "miss": resume_miss,
+        "err": 0,
+        "pending": len(todo),
+        "last_eval_id": "",
+        "last_mark": "",
+        "updated_at": time.time(),
+    }
+
+    def _write_live(mark: str, eval_id: str) -> None:
+        with live_lock:
+            live["pass_done"] = n_done
+            live["last_eval_id"] = eval_id
+            live["last_mark"] = mark.strip()
+            live["updated_at"] = time.time()
+            live["ok"] = live["resume_ok"] + live["pass_ok"]
+            live["miss"] = live["resume_miss"] + live["pass_miss"]
+            live["err"] = live["pass_err"]
+            live["pending"] = live["todo"] - live["pass_done"]
+            tmp = live_path.with_suffix(".json.tmp")
+            try:
+                tmp.write_text(json.dumps(live, indent=1), encoding="utf-8")
+                tmp.replace(live_path)
+            except OSError:
+                pass
+
+    _write_live("", "")
     with ThreadPoolExecutor(max_workers=args.concurrency) as ex:
         futs = [ex.submit(work, q) for q in todo]
         for fut in as_completed(futs):
@@ -850,12 +1110,20 @@ def main() -> int:
             _assert_model_not_substituted(r)
             n_done += 1
             mark = "ERR " if r.get("error") else ("ok  " if r.get("judge", {}).get("label") else "MISS")
+            with live_lock:
+                if r.get("error"):
+                    live["pass_err"] += 1
+                elif r.get("judge", {}).get("label"):
+                    live["pass_ok"] += 1
+                else:
+                    live["pass_miss"] += 1
+            _write_live(mark, r["eval_id"])
             print(f"[{n_done}/{len(todo)}] {mark} {r['eval_id']} {r.get('error','')[:80]}", flush=True)
 
     # ---- score + paired comparison ----
     _, final_errored = load_previous_answers(answers_path)
     rows = list(done.values())
-    for line in open(answers_path):
+    for line in open(answers_path, encoding="utf-8"):
         try:
             r = json.loads(line)
         except json.JSONDecodeError:
@@ -872,7 +1140,10 @@ def main() -> int:
         cats.setdefault(c, [0, 0])
         cats[c][0] += bool(r["judge"]["label"])
         cats[c][1] += 1
-    paired_stats = _paired_stats(anchor, labels)
+    paired = {e: (anchor[e], labels[e]) for e in labels if e in anchor}
+    b = sum(1 for a, n in paired.values() if a and not n)   # anchor-only correct
+    c_ = sum(1 for a, n in paired.values() if n and not a)  # new-only correct
+    p = mcnemar_exact(b, c_)
     # Every model that answered any question in this run. One entry is the
     # only healthy outcome; more than one means the run is a blend and its
     # score is not attributable to anything.
@@ -890,7 +1161,7 @@ def main() -> int:
         # Derived, never hardcoded. These two fields used to be string
         # literals, so every run inherited the provenance of whichever run the
         # literals were written for — three separate directories all claimed
-        # to be the same run at the same commit, and reading them cost real
+        # to be `s500_..._0724_v4flash @ d5ae1c7`, and reading them cost real
         # time before the answers.jsonl stamps settled what had actually run.
         "run": out_dir.name,
         "sodamem": _sodamem_provenance(),
@@ -901,10 +1172,9 @@ def main() -> int:
         "n_answered": len(labels), "correct": correct,
         "accuracy": round(correct / len(labels), 4) if labels else None,
         "per_category": {k: f"{a}/{b2}" for k, (a, b2) in sorted(cats.items())},
-        # Same story as `run`/`sodamem` above: this was the third literal in
-        # this dict, and the one the earlier fix missed.
-        "anchor": anchor_provenance,
-        **paired_stats,
+        "anchor": "entitysubj_consensus (3-run majority vote, 461/500 reference) — store longmemeval_s_500_Hobs_entitysubj",
+        "paired_n": len(paired), "anchor_only_correct": b, "new_only_correct": c_,
+        "mcnemar_exact_p": round(p, 4),
         # Counted from the file's final state, not from `rows` — `rows` comes
         # from the resume dict, which excludes failures by construction, so
         # this field could only ever have been 0. It read 0 through a run that
@@ -922,18 +1192,7 @@ def main() -> int:
         print(f"!! INCOMPLETE: {len(labels)}/{len(questions)} answered, "
               f"{len(final_errored)} errored — rerun this arm to fill them in; "
               f"failed questions retry automatically.", flush=True)
-    # A field that is merely null in the JSON gets skimmed past; this line does
-    # not. The two causes need different fixes — one is a missing file, the
-    # other is an anchor built for a different question set — so say which.
-    if summary["paired_n"] == 0:
-        why = ("no anchor file in SODAMEM_BENCH_DATA"
-               if anchor_provenance is None else
-               f"{anchor_provenance['file']} loaded "
-               f"{anchor_provenance['n_labels']} labels, none of them "
-               f"eval_ids this run answered")
-        print(f"!! NO PAIRED COMPARISON: {why} — mcnemar_exact_p is null, "
-              f"this run was not compared against anything.", flush=True)
-    json.dump(summary, open(out_dir / "summary.json", "w"), indent=1)
+    json.dump(summary, open(out_dir / "summary.json", "w", encoding="utf-8"), indent=1)
     print(json.dumps(summary, indent=1), flush=True)
     return 0
 

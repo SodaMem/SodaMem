@@ -3,7 +3,7 @@
 Three sources, kept in separate sections below:
 
 1. The task brief's own Step 2 skeleton, verbatim: `_TOOL_REGISTRY` carries
-   no dead `path` field (riding-along fix #3);
+   no dead `path` field (riding-along fix #3); `retrieve_auto`'s parameter is
    named `as_of`, not `question_date` (riding-along fix #2).
 2. The subset of the HTTP/CLI adapter and id-normalization tests that locks
    `MemoryTool`'s OWN response shape — NOT an HTTP adapter shape (most of
@@ -19,6 +19,7 @@ Three sources, kept in separate sections below:
 """
 from __future__ import annotations
 
+import inspect
 import json
 from datetime import datetime
 from types import SimpleNamespace
@@ -50,6 +51,12 @@ class _FakeEmbedder:
 def test_tool_registry_has_no_dead_path_fields():
     for name, spec in _TOOL_REGISTRY.items():
         assert "path" not in spec, f"{name} still carries a dead http path field"
+
+
+def test_retrieve_auto_param_is_as_of_not_question_date():
+    sig = inspect.signature(MemoryTool.retrieve_auto)
+    assert "as_of" in sig.parameters
+    assert "question_date" not in sig.parameters
 
 
 # ---------------------------------------------------------------------------
@@ -213,6 +220,40 @@ def test_search_pagination_reaches_evidence_beyond_tiny_config_default_limit(tmp
 
 
 # ---------------------------------------------------------------------------
+# retrieve_auto: functional coverage, not just the as_of param-name check
+# above. This method is NOT a byte-exact port (see sodamem/tools/__init__.py
+# module docstring) — it drops the source's _select_answer_evidence
+# reranking step, which depended on the answer_task field I4 removed from
+# AnswerEvidenceBundle. These tests pin the observable contract that
+# survives: {"memories": [...], "context": "...", "count": N} projected
+# straight off retrieval.search()'s own ranking, and as_of's forward-compat
+# wiring (a non-None as_of must still raise, not silently no-op).
+# ---------------------------------------------------------------------------
+
+def test_retrieve_auto_projects_top_k_ranked_evidence_to_cli_shape(tmp_path):
+    store = open_store(tmp_path / "retrieve_auto.sqlite3", prompts=_PROMPTS, embedder=_FakeEmbedder())
+    _ingest_many_facts(store)  # 12 facts
+    memory = SodaMem(store=store)
+    tool = MemoryTool(memory, user_id="u1")
+
+    result = tool.retrieve_auto("completed task", top_k=3)
+
+    assert result["count"] == len(result["memories"]) == 3
+    assert result["context"], "context must be a non-empty join of support_text"
+    for item in result["memories"]:
+        assert item["user_id"] == "u1"
+        assert item["status"] == "active"
+        assert item["content"]
+
+
+def test_retrieve_auto_as_of_forwards_to_search_and_raises_not_implemented(tmp_path):
+    store = open_store(tmp_path / "retrieve_auto_asof.sqlite3", prompts=_PROMPTS, embedder=_FakeEmbedder())
+    memory = SodaMem(store=store)
+    tool = MemoryTool(memory, user_id="u1")
+
+    with pytest.raises(NotImplementedError):
+        tool.retrieve_auto("anything", as_of=datetime.now())
+
 
 def test_dispatch_drops_unknown_args_like_source_pydantic_boundary(tmp_path):
     """Bug #8 family (0723): source's HTTP boundary used pydantic models that

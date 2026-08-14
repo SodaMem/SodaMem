@@ -46,7 +46,7 @@ Six fixes applied on port (task brief, Step 1 bullet 2):
 4. EvidenceBoard temporal-reorder block (source :1841-1889, `GRAPH_V2_BOARD`)
    -> DELETED, following Task 6's R2 verdict (production-dead retrieval-side
    time-constraint machinery). `sodamem.memory.retrieval.query_plan` DOES
-   exist (Task 6 ported `QueryPlan`, live fusion-scoring
+   exist (Task 6 ported `QueryPlan`/`temporal_match`, live fusion-scoring
    code), but the specific symbols this block needed —
    `TimeConstraint`/`parse_time_constraint`/`apply_evidence_board`,
    the predecessor implementation — were the ones R2
@@ -96,6 +96,12 @@ from sodamem.prompts.reader import (
 from sodamem.prompts.reader_con import OFFICIAL_CON_PROMPT_TEMPLATE
 
 # Read-time currency (BENCHMARK_READER_CURRENCY) is SKIPPED when the question
+# asks for a PAST/history value, so a "previous best" isn't collapsed to the
+# latest. Ported byte-for-byte from source :35-38.
+_HISTORY_INTENT_RE = re.compile(
+    r"\b(previous|former|formerly|used to|earlier|before |prior|originally|"
+    r"initial(?:ly)?|at first|old|last time|history|past)\b", re.I,
+)
 # BENCHMARK_READER_DROP_EXTERNAL is intent-gated: when the question asks about
 # the ASSISTANT's own prior statements, external_info rows ARE the gold.
 # Ported byte-for-byte from source :45-52.
@@ -116,6 +122,8 @@ class ReaderConfig:
     the benchmark harness)."""
     full_pool: bool = True          # was BENCHMARK_READER_FULL_POOL
     drop_external: bool = True      # was BENCHMARK_READER_DROP_EXTERNAL (intent-gated)
+    currency: bool = False          # was BENCHMARK_READER_CURRENCY — R8: the LIVE currency
+                                     # implementation; currency.py (dead twin) was deleted in Task 6
     max_tokens: int = 3000
     temperature: float = 0.0
 
@@ -196,6 +204,10 @@ def assemble_reader_context(
         ]
         reader_ids = kept or reader_ids
 
+    # BENCHMARK_READER_CURRENCY (source :1757-1780), intent-gated.
+    if config.currency and not _HISTORY_INTENT_RE.search(question or ""):
+        reader_ids = _apply_currency(evidence, reader_ids)
+
     # Organizer glue (source :1781-1831; fix #2 — moved here, see module
     # docstring). Always-on: the four env gates that used to guard it all
     # defaulted ON in the winning config.
@@ -256,8 +268,43 @@ def assemble_reader_context(
     )
 
 
+def _apply_currency(evidence: EvidenceStore, reader_ids: list[str]) -> list[str]:
+    """Ported byte-for-byte from source :1759-1780. Collapses each dynamic-
+    state SLOT (kind=state / modality=current_state, same predicate +
+    non-subject roles) to its most-recently-mentioned fact."""
+
+    def _is_dyn(raw: dict[str, Any]) -> bool:
+        return raw.get("kind") == "state" or raw.get("modality") == "current_state"
+
+    def _slot(raw: dict[str, Any]) -> tuple:
+        roles = raw.get("entity_roles") or {}
+        ident = tuple(sorted(
+            k for k, v in roles.items() if k != "subject" and v not in (None, "", [], {})
+        ))
+        return (raw.get("predicate_canonical") or "", raw.get("event_type") or "", ident)
+
+    def _mention(raw: dict[str, Any]) -> str:  # ISO strings sort chronologically; newest wins
+        return str(raw.get("document_time") or raw.get("session_time") or "")
+
+    groups: dict[tuple, list[str]] = {}
+    kept: list[str] = []
+    for rid in reader_ids:
+        rec = evidence.records.get(rid)
+        if rec is None or not _is_dyn(rec.raw):
+            kept.append(rid)
+        else:
+            groups.setdefault(_slot(rec.raw), []).append(rid)
+    for slot_rids in groups.values():
+        kept.append(
+            slot_rids[0] if len(slot_rids) == 1
+            else max(slot_rids, key=lambda r: _mention(evidence.records[r].raw))
+        )
+    order = {rid: i for i, rid in enumerate(reader_ids)}
+    return sorted(kept, key=lambda r: order.get(r, 0)) or reader_ids
+
 
 _TURN_TAIL_NUMBER_RE = re.compile(r"(\d+)\s*$")
+
 
 def _turn_sort_key(turn_id: Any) -> tuple[int, str]:
     """Numeric-suffix sort key so session_5_turn_10 sorts after ..._turn_2.

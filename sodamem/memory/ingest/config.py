@@ -119,10 +119,11 @@ class ExtractConfig:
     # predicate, duplicate text — for every span the model correctly declined
     # to extract from. ON = an empty parse is an empty result, not a failure.
     empty_extraction_is_empty: bool = True
-    # (audit 0723) coarse_domain_profile deleted: an unimplemented
-    # placeholder for selecting a domain prompt. R2.7 made the extraction
-    # prompt domain-neutral outright, and the coarse variant it would have
-    # selected was deleted 0806 — there is nothing left to select.
+    # (audit 0723) coarse_domain_profile deleted: it was an unimplemented
+    # placeholder whose presence excused an unconditional COARSE_RULES append —
+    # a silent drift from production (INGEST_EXTRACT_COARSE defaulted OFF).
+    # R2.7 resolved the question it was holding open by making the extraction
+    # prompt domain-neutral outright, so there is nothing left to select.
 
 
 @dataclass(frozen=True)

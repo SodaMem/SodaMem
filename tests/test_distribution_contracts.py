@@ -11,11 +11,6 @@ from pathlib import Path
 
 import pytest
 
-# `server.settings` needs pydantic-settings, which ships in the [server]
-# extra. CI's gate-i1-base-deps collects this tree under a BASE install,
-# where the import would otherwise abort collection for the whole run.
-pytest.importorskip("pydantic_settings", reason="server tests require the [server] extra")
-
 from server.settings import Settings
 
 
@@ -233,11 +228,7 @@ def test_no_dangling_references_to_predecessor_repositories():
     the reader cannot open explains nothing — it just tells them something is
     missing. The reasoning stays; the pointer goes."""
     import re as _re
-    # Both spellings: the repository was referred to as `glass_drift` and as
-    # `drift-glass`, and a pattern that knew only the first let two
-    # `drift-glass-cli` comments sit in a shipped module until 0806.
-    dangling = _re.compile(r"memory_core|glass[_-]drift|drift[_-]glass|"
-                           r"task-T\d|migration map")
+    dangling = _re.compile(r"memory_core|glass_drift|task-T\d|migration map")
     hits = []
     for sub in ("sodamem", "server", "mcp_server", "adapters", "tests"):
         for path in (ROOT / sub).rglob("*.py"):

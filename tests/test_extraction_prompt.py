@@ -25,7 +25,11 @@ from __future__ import annotations
 
 import pytest
 
-from sodamem.prompts.extraction import DETERMINISM_RULES, EXTRACT_SYSTEM_PROMPT
+from sodamem.prompts.extraction import (
+    DETERMINISM_RULES,
+    EXTRACT_SYSTEM_PROMPT,
+    EXTRACT_SYSTEM_PROMPT_ENTITY_SUBJECT,
+)
 
 # Drawn from the audit — every domain term that used to be in the prompt.
 _DOMAIN_TERMS = ("flight_segment", "trip_count", "ride_count", "flight",
@@ -77,16 +81,31 @@ def test_there_is_no_profile_switch():
 
 # --- the variant that is built by substitution ------------------------------
 
-# Three tests for EXTRACT_SYSTEM_PROMPT_ENTITY_SUBJECT lived here. That
-# variant had zero consumers — the `entity_subject` config flag is a PARSER
-# switch (honour roles["subject"] instead of hardcoding entity_user), not a
-# prompt swap, so the two only ever shared a name. Variant, its
-# `_require_replace` guard, and these tests were deleted 0806.
-#
-# The guard was good design for what it protected: a `.replace()` whose target
-# has drifted returns the string unchanged, so an A/B between "variant" and
-# base silently compares two identical prompts. If a prompt variant is ever
-# reintroduced, reintroduce that guard with it.
+def test_entity_subject_variant_actually_differs_from_the_base():
+    """This variant is produced by substituting into the base prompt. When the
+    base changed — as it just did — a plain `.replace()` whose target no
+    longer matches returns the string unchanged, and the "variant" becomes a
+    byte-identical copy. An A/B between two identical prompts reports "no
+    difference" and looks like a result."""
+    assert EXTRACT_SYSTEM_PROMPT_ENTITY_SUBJECT != EXTRACT_SYSTEM_PROMPT
+    assert "SUBJECT: use" in EXTRACT_SYSTEM_PROMPT_ENTITY_SUBJECT
+    assert "OR the real entity" in EXTRACT_SYSTEM_PROMPT_ENTITY_SUBJECT
+
+
+def test_variant_construction_fails_loudly_when_its_target_is_gone():
+    """The guard that makes the test above impossible to regress silently."""
+    from sodamem.prompts.extraction import _require_replace
+    with pytest.raises(ValueError) as exc:
+        _require_replace("some text", "absent needle", "replacement")
+    assert "absent needle" in str(exc.value)
+
+
+def test_variant_inherits_the_domain_neutral_base():
+    """It is derived from the base, so it must not smuggle the old vocabulary
+    back in through its own substituted text."""
+    lowered = EXTRACT_SYSTEM_PROMPT_ENTITY_SUBJECT.lower()
+    for term in ("airline", "flight_segment", "united airlines"):
+        assert term not in lowered
 
 
 def test_fingerprint_inputs_are_exactly_what_the_extractor_sends():

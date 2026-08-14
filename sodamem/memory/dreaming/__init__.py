@@ -48,6 +48,7 @@ from sodamem.models import (
 )
 
 __all__ = [
+    "CancelToken",
     "DreamingOptions",
     "DreamingResult",
     "EntityProfileSynthesizer",
@@ -72,6 +73,7 @@ class CancelToken:
 class DreamingOptions:
     batch_size: int = 50
     max_processing_time_sec: float = 0.0      # 0 = no soft deadline
+    parallelism: int = 1                       # reserved; deterministic path is serial
     priority_order: str = "by_staleness"       # by_staleness | by_fact_count_delta | fifo
 
 
@@ -191,6 +193,7 @@ def run_dream(
     user_id: str,
     *,
     config: Optional["IngestConfig"] = None,
+    cancel_token: Optional[CancelToken] = None,
     options: Optional[DreamingOptions] = None,
 ) -> DreamingResult:
     """Process the stale entity set into refreshed profile facts.
@@ -220,13 +223,10 @@ def run_dream(
         stale = store.get_stale_entities(user_id, order=opts.priority_order)
         processed = 0
         for entity_id in stale:
-            if deadline is not None and time.time() > deadline:
-                # `cancelled` means "stopped before the stale set was drained",
-                # which is exactly what a deadline cut is. It used to be set
-                # only by a CancelToken that no entry point could pass, so the
-                # flag was always False and POST /v1/maintenance/dream
-                # documented a value it never returned.
+            if cancel_token is not None and cancel_token.is_set():
                 result.cancelled = True
+                break
+            if deadline is not None and time.time() > deadline:
                 break
             if processed >= opts.batch_size:
                 break

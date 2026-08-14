@@ -80,13 +80,9 @@ function buildQuery(params: Record<string, string | number | boolean | null | un
 }
 
 /** True when `body` looks like the server's ErrorBody envelope
- * ({ code, message, details }).
- *
- * Since 0806 a current SodaMem server answers EVERY error this way, router
- * 404/405 included. The `{ detail }` fallback below stays anyway: this SDK
- * talks to a server it does not control, so an older SodaMem, a reverse proxy,
- * or a gateway can still put its own shape on the wire. Normalizing both is
- * what lets a caller switch on `code` unconditionally. */
+ * ({ code, message, details }). FastAPI's own auth-layer HTTPExceptions
+ * (e.g. the 401 raised before ErrorBody handlers run) instead produce
+ * `{ detail }` — we normalize both shapes so callers only ever see one. */
 function isErrorBody(body: unknown): body is ErrorBody {
   return (
     typeof body === "object" &&
@@ -179,10 +175,8 @@ export class SodaMemClient {
           details: parsed.details ?? {},
         });
       }
-      // Not our envelope. A current server always sends one, so reaching
-      // here means an older SodaMem or something between us and it — a proxy
-      // 502, a gateway timeout page. Salvage a message rather than throwing
-      // away the only diagnostic the caller will get.
+      // Non-ErrorBody error (e.g. FastAPI's default {"detail": "..."} for
+      // HTTPExceptions raised outside our exception handlers, such as auth).
       const detail =
         typeof parsed === "object" && parsed !== null && "detail" in (parsed as Record<string, unknown>)
           ? String((parsed as Record<string, unknown>).detail)

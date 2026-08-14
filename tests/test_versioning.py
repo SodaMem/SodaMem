@@ -46,44 +46,58 @@ def test_prompt_drift_raises():
 
 # --- Fingerprint sensitivity, per-constant (T2 review carryover to T3) -----
 #
-# Keyed on the ACTUAL production constants, not synthetic strings
-# (test_fingerprint_changes_when_a_prompt_changes above already covers those),
-# so a typo that quietly shortens one during a future edit is caught here
-# rather than discovered as a silently-stale store in production.
-#
-# There are exactly two write-side prompt constants, and both are what
-# `SodaMem.open()` feeds the fingerprint. A third, COARSE_RULES, was covered
-# here by an identical test until 0806, when it was deleted along with the
-# extraction variant it belonged to.
-
-def _base() -> dict[str, str]:
-    from sodamem.prompts.extraction import DETERMINISM_RULES, EXTRACT_SYSTEM_PROMPT
-    return {"extract": EXTRACT_SYSTEM_PROMPT, "determinism": DETERMINISM_RULES}
-
+# T2's port of sodamem.prompts.extraction (DETERMINISM_RULES / COARSE_RULES)
+# revert-fixed an `active_prompt_fingerprint()` wrapper as scope creep, on the
+# understanding that T3 would instead cover fingerprint sensitivity with
+# tests keyed on the actual production prompt constants — not just synthetic
+# strings (test_fingerprint_changes_when_a_prompt_changes above) — so a typo
+# that quietly shortens one of these constants during a future edit is
+# caught here, not discovered as a silently-stale store in production.
+# EXTRACT_SYSTEM_PROMPT itself is exercised transitively by every open_store()
+# test in tests/test_storage.py; these two cover the other two write-side
+# prompt constants individually.
 
 def test_fingerprint_sensitive_to_determinism_rules_change():
-    base = _base()
+    from sodamem.prompts.extraction import COARSE_RULES, DETERMINISM_RULES, EXTRACT_SYSTEM_PROMPT
+
+    base = {
+        "extract": EXTRACT_SYSTEM_PROMPT,
+        "determinism": DETERMINISM_RULES,
+        "coarse": COARSE_RULES,
+    }
+    fp_before = prompt_fingerprint(base)
+
     mutated = dict(base)
-    mutated["determinism"] = base["determinism"] + "\nmutated for test"
-    assert prompt_fingerprint(base) != prompt_fingerprint(mutated), (
+    mutated["determinism"] = DETERMINISM_RULES + "\nmutated for test"
+    fp_after = prompt_fingerprint(mutated)
+
+    assert fp_before != fp_after, (
         "prompt_fingerprint must change when DETERMINISM_RULES changes — "
         "a store built under the old rules must fail closed, not silently "
         "keep answering under the new ones."
     )
 
 
-def test_fingerprint_sensitive_to_extract_system_prompt_change():
-    """The other half of the pair, and the one that matters most:
-    EXTRACT_SYSTEM_PROMPT decides what a fact IS, so two stores built under
-    different versions of it do not hold the same thing."""
-    base = _base()
+def test_fingerprint_sensitive_to_coarse_rules_change():
+    from sodamem.prompts.extraction import COARSE_RULES, DETERMINISM_RULES, EXTRACT_SYSTEM_PROMPT
+
+    base = {
+        "extract": EXTRACT_SYSTEM_PROMPT,
+        "determinism": DETERMINISM_RULES,
+        "coarse": COARSE_RULES,
+    }
+    fp_before = prompt_fingerprint(base)
+
     mutated = dict(base)
-    mutated["extract"] = base["extract"] + "\nmutated for test"
-    assert prompt_fingerprint(base) != prompt_fingerprint(mutated), (
-        "prompt_fingerprint must change when EXTRACT_SYSTEM_PROMPT changes — "
-        "a store built under the old extraction text must fail closed, not "
-        "silently keep answering under the new one."
+    mutated["coarse"] = COARSE_RULES + "\nmutated for test"
+    fp_after = prompt_fingerprint(mutated)
+
+    assert fp_before != fp_after, (
+        "prompt_fingerprint must change when COARSE_RULES changes — a store "
+        "built under the old coarse-domain rules must fail closed, not "
+        "silently keep answering under the new ones."
     )
+
 
 # ---------------------------------------------------------------------------
 # R1.7 — embedder identity.

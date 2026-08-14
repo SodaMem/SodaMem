@@ -16,24 +16,7 @@ the verdict our judge gave it.
 
 **Why `hypothesis` is the point.** A score alone cannot be checked by anyone.
 The answers can: take this file, run any judge you like against
-`golden_answer`, and see what you get.
-
-**`tools_used` names memory tools, not web tools.** Every value prefixed
-`browser_` is the planner browsing *the memory store* — `browser_search`
-queries stored facts, `browser_inspect_session` opens one recorded session,
-`browser_count_evidence` counts matching evidence rows, `browser_timeline_events`
-walks one entity's history. **This run made no network request of any kind
-beyond the LLM API.** SodaMem ships no web-search tool; there is nothing in
-`sodamem/tools/` that can reach the open internet.
-
-### Where the dataset fields come from
-
-`question` and `golden_answer` are reproduced verbatim from
-[LongMemEval](https://github.com/xiaowu0162/LongMemEval) (Wu et al.) solely so
-that each of our answers can be aligned with, and re-judged against, the item
-it responds to. We claim no rights over them, we redistribute no part of the
-conversation histories, and we will remove these fields on request from the
-dataset's authors — `question_id` alone is enough to rejoin them locally.
+`golden_answer`, and see what you get. numbers.
 
 ### What this run is
 
@@ -43,7 +26,7 @@ dataset's authors — `question_id` alone is enough to rejoin them locally.
 | judge | **`deepseek-v4-flash`** with the LongMemEval benchmark's own judge prompts, byte-identical (5/5 task templates + abstention) |
 | reader / planner | **`deepseek-v4-flash`** — **the same model as the judge** |
 | store | `longmemeval_s_500_Hobs_entitysubj`, 500 users / 235,840 facts |
-| code | a pre-release build — this repository's published history begins at v0.1.0 |
+| code | HEAD `5a9c4c2` |
 
 ### Reading the number
 

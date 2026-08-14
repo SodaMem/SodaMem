@@ -11,9 +11,9 @@ paths, per the delete list and the user's
 `EXTRACT_ENRICH`/`INGEST_EXTRACT_ENRICH`, `EXTRACT_CONSOLIDATE`/
 `INGEST_CONSOLIDATE` (their prompts, methods, and counters are gone — not
 just the boolean switch), and `GRAPH_V2_LOOSE_GROUNDING` (strict 0.8-overlap
-grounding is now the only path). `EXTRACT_COARSE`/`INGEST_EXTRACT_COARSE` is also gone,
-switch and prompt text both — the coarse route lost its A/B and nothing ever
-enabled it.
+grounding is now the only path). `EXTRACT_COARSE`/`INGEST_EXTRACT_COARSE`'s
+switch is also gone, but its prompt text (`COARSE_RULES`) survives as an
+unconditional default (see `sodamem.prompts.extraction`).
 
 Two flags folded to unconditional True (winner-goes-flagless, established
 baseline — see `IngestConfig`'s docstring): `INGEST_CORRECTNESS` and
@@ -665,11 +665,11 @@ class FactEventExtractorV2:
         """Single-call extraction (the only extraction path — EXTRACT_ENRICH's
         two-stage variant was a dead R2.9 flag, deleted). Returns
         (parsed_data_or_None, truncated)."""
-        # EXTRACT + DETERMINISM, and nothing else. A coarse-granularity
-        # variant was gated behind INGEST_EXTRACT_COARSE (default OFF, never
-        # enabled by any store) and lost its A/B on hard-47 (H 24 > BASE 21 >
-        # C 18); it was deleted 0806. These two are what the fingerprint
-        # covers, so this assembly and `SodaMem.open`'s fp_prompts must agree.
+        # Parity (audit 0723): COARSE_RULES was gated behind
+        # INGEST_EXTRACT_COARSE, default OFF, no config override — the
+        # S500 stores of record were built WITHOUT it, and the coarse route
+        # measurably lost on hard-47 (H 24 > BASE 21 > C 18). The port had
+        # promoted it to unconditional; reverted to the production assembly.
         system = EXTRACT_SYSTEM_PROMPT + DETERMINISM_RULES
         raw = self._provider.complete(
             messages=[{"role": "user", "content": prompt}],
@@ -948,12 +948,15 @@ class FactEventExtractorV2:
         if time_precision in ("day", "hour", "minute", "second"):
             _wts = _iso_to_ts(occurred_raw or valid_from_raw)
             if _wts:
-                try:
-                    weekday = datetime.fromtimestamp(_wts).strftime("%A")
-                except (ValueError, OSError, OverflowError) as e:
+                from sodamem.memory._shared import _safe_fromtimestamp
+
+                _wdt = _safe_fromtimestamp(_wts)
+                if _wdt is not None:
+                    weekday = _wdt.strftime("%A")
+                else:
                     logger.warning(
                         "extractor: could not derive weekday from epoch %r "
-                        "(%s) — leaving weekday unset", _wts, e,
+                        "— leaving weekday unset", _wts,
                     )
         fact = FactEvent(
             user_id=user_id,
