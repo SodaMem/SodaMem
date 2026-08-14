@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "sodamem"
-version = "0.0.1"
+version = "0.1.0"
 description = "Evidence-grounded temporal memory for AI agents"
 requires-python = ">=3.11"
 classifiers = [
@@ -37,9 +37,11 @@ dependencies = [
 # Must come after every plain [project] key: a table header ends the parent
 # table, so anything below it would be parsed as a URL entry instead.
 [project.urls]
-Homepage = "https://github.com/xlows1206/SodaMem"
-Source = "https://github.com/xlows1206/SodaMem"
-Issues = "https://github.com/xlows1206/SodaMem/issues"
+Homepage = "https://sodamem.com"
+Documentation = "https://sodamem.com/docs"
+Source = "https://github.com/SodaMem/SodaMem"
+Issues = "https://github.com/SodaMem/SodaMem/issues"
+Changelog = "https://github.com/SodaMem/SodaMem/blob/main/CHANGELOG.md"
 
 [project.optional-dependencies]
 chroma = ["chromadb>=0.6.0"]
@@ -98,7 +100,7 @@ where = ["."]
 # 0727: `pip install sodamem[server]` installed FastAPI and then had no server
 # code to run — a broken extra that nothing caught, because the dev tree
 # imports from source. tests/test_packaging.py now pins this.
-include = ["sodamem*", "sodamem_cli*", "mcp_server*", "server*", "adapters*"]
+include = ["sodamem*", "sodamem_cli*", "sodamem_opt*", "mcp_server*", "server*", "adapters*"]
 
 [tool.setuptools.package-data]
 sodamem = ["py.typed"]

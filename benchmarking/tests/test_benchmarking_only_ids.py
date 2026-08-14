@@ -1,11 +1,6 @@
-"""--only 子集加载 (0731 稳定集评法)。
+"""--only subset loading + --range helpers.
 
-空文件必须报错而不是"没有过滤条件 = 跑全部": --only 的整个用途是把一次
-跑限制在一个子集上, 所以一个读不出 id 的文件是操作失误, 而"静默跑全部
-500 道"会在计费之后才被发现。
-
-(本文件原先还覆盖 reader-votes 臂的两个纯函数。该臂 0806 随实现一并删除
-—— 每次计分跑都是关闭的; 证伪记录见 benchmarking/README.md。)
+Empty --only file must error rather than silently run all 500.
 """
 from __future__ import annotations
 
@@ -15,6 +10,19 @@ from pathlib import Path
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+
+# A base `pip install sodamem` has no [llm] extra, and CI's
+# gate-i1-base-deps job collects this whole tree under exactly that
+# install. Skipping is the contract; exploding at import is what the
+# gate exists to catch.
+pytest.importorskip(
+    "openai",
+    reason=(
+        "the benchmark harness imports the OpenAI SDK at module level; "
+        "it lives behind the [llm] extra"
+    ),
+)
 
 from run_s500 import (  # noqa: E402
     eval_id_number,

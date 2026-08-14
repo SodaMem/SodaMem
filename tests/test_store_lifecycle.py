@@ -22,6 +22,11 @@ import threading
 
 import pytest
 
+# `server.settings` needs pydantic-settings, which ships in the [server]
+# extra. CI's gate-i1-base-deps collects this tree under a BASE install,
+# where the import would otherwise abort collection for the whole run.
+pytest.importorskip("pydantic_settings", reason="server tests require the [server] extra")
+
 from sodamem import SodaMem
 from server.settings import Settings
 from server.stores import StoreManager

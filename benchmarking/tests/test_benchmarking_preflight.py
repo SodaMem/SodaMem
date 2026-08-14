@@ -15,6 +15,13 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+
+# A base `pip install sodamem` has no [llm] extra, and CI's
+# gate-i1-base-deps job collects this whole tree under exactly that
+# install. Skipping is the contract; exploding at import is what the
+# gate exists to catch.
+pytest.importorskip("openai", reason="the benchmark harness imports the OpenAI SDK at module level; it lives behind the [llm] extra")
+
 import run_s500  # noqa: E402
 
 
@@ -52,9 +59,9 @@ def test_preflight_names_every_missing_arm_not_just_the_first(monkeypatch):
 def test_preflight_ignores_arms_that_are_switched_off(monkeypatch):
     """An explicitly-OFF boolean asks for the behavior an older build already
     has, so its absence changes nothing and must not block the run."""
-    monkeypatch.setattr(run_s500, "TIME_WINDOW", False)
+    monkeypatch.setattr(run_s500, "ABSTENTION_GATE", False)
     monkeypatch.setattr(run_s500, "_accepts_keyword",
-                        lambda target, name: name != "time_window")
+                        lambda target, name: name != "abstention_gate")
     run_s500._preflight_arms()
 
 

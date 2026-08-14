@@ -23,8 +23,15 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from run_s500 import load_previous_answers  # noqa: E402
+import pytest
 
+# A base `pip install sodamem` has no [llm] extra, and CI's
+# gate-i1-base-deps job collects this whole tree under exactly that
+# install. Skipping is the contract; exploding at import is what the
+# gate exists to catch.
+pytest.importorskip("openai", reason="the benchmark harness imports the OpenAI SDK at module level; it lives behind the [llm] extra")
+
+from run_s500 import load_previous_answers  # noqa: E402
 
 def _write(tmp_path: Path, *rows) -> Path:
     path = tmp_path / "answers.jsonl"
