@@ -1,8 +1,4 @@
-"""Slot binder advisories — named-slot discipline (TAS).
-
-Generic guidance for SLOT_LOOKUP / VERSIONED_ATTR. No brand- or item-specific
-prompt packs.
-"""
+"""Slot binder advisories — named-slot discipline (TAS)."""
 from __future__ import annotations
 
 from protocol_v1.schema import QuestionSchema

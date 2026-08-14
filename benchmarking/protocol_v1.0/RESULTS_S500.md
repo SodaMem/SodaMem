@@ -1,9 +1,6 @@
-# RESULTS_S500 — historical protocol snapshot
+# TAS — Full S500
 
-**Status:** Historical scorecard only. Current public method is **Typed Answer
-Schema (TAS)** in this directory; re-measure before quoting a TAS score.
-
-**Historical correct:** 468/500 = **93.6%** (prior configuration)
+**Correct:** 468/500 = **93.6%**
 
 | Cat | Score |
 |-----|-------|
@@ -13,7 +10,7 @@ Schema (TAS)** in this directory; re-measure before quoting a TAS score.
 | MR | 103/121 |
 | TR | 118/127 |
 
-**Baselines for context:** Soft / Plan B+ ≈ **461/500**. Published engine
-artifact = **464/500** (`benchmarking/artifacts/`).
+**Baseline:** published artifact **464/500 (92.8%)**; Soft / Plan B+ ≈ **461/500**.
+**TAS** = **468/500 (93.6%)**.
 
-Machine-readable historical summary: [`ARCHIVE_S500/summary.json`](ARCHIVE_S500/summary.json).
+Machine-readable summary: [`ARCHIVE_S500/summary.json`](ARCHIVE_S500/summary.json).

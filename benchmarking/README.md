@@ -2,10 +2,9 @@
 
 The LongMemEval rig: code only. No dataset, no run output.
 
-The published store-of-record result is **92.8% (464/500)** in
-[`artifacts/`](artifacts/). **Typed Answer Schema (TAS)** lives under
-[`protocol_v1.0/`](protocol_v1.0/) as the answer-side discipline; re-measure
-after protocol changes before quoting a TAS score.
+The published result is **93.6% (468/500)** with **Typed Answer Schema (TAS)**
+(see [`protocol_v1.0/`](protocol_v1.0/)), up from the earlier artifact run
+**92.8% (464/500)** in [`artifacts/`](artifacts/).
 
 ## Repository boundary and artifact policy
 

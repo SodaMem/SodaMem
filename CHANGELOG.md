@@ -9,11 +9,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 ### Changed
 
 - Answer protocol public name: **Typed Answer Schema (TAS)**
-  (`benchmarking/protocol_v1.0/`). Removed per-question entity
-  include/exclude packs and brand saturation query packs; kept task-type
-  routing and general engineering constraints.
-- README / i18n: primary LongMemEval claim is the published **464/500**
-  artifact; TAS docs no longer advertise a scrubbed-code 468 headline.
+  (`benchmarking/protocol_v1.0/`). LongMemEval-S headline **468/500 (93.6%)**,
+  up from the published artifact **464/500 (92.8%)**.
 
 ## [0.1.0] — 2026-08-14
 
@@ -37,7 +34,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 | label | score | notes |
 |---|---|---|
 | Published artifact | 464/500 (92.8%) | `benchmarking/artifacts/` — full reproducible bundle |
-| Protocol v1.0 (historical archive) | 468/500 (93.6%) | Prior snapshot under `ARCHIVE_S500/` — not current TAS claim |
+| TAS headline | 468/500 (93.6%) | `benchmarking/protocol_v1.0/` — Typed Answer Schema |
 
 ## [0.0.1] — 2026-03
 

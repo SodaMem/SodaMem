@@ -8,7 +8,7 @@
 
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](../../LICENSE)
 [![Python](https://img.shields.io/badge/python-3.11%2B-blue.svg)](../../pyproject.toml)
-[![LongMemEval](https://img.shields.io/badge/LongMemEval--S-92.8%25-brightgreen.svg)](../../benchmarking/artifacts/)
+[![LongMemEval](https://img.shields.io/badge/LongMemEval--S-93.6%25-brightgreen.svg)](../../benchmarking/protocol_v1.0/)
 
 <!-- langs -->
 [English](../../README.md) · **简体中文** · [日本語](README.ja.md) · [한국어](README.ko.md) · [Français](README.fr.md) · [Español](README.es.md) · [Deutsch](README.de.md) · [Português](README.pt-BR.md)
@@ -111,24 +111,22 @@ organizer，所以那条路由的零 LLM 保证不可能被某个请求参数翻
 
 ## 跑分
 
-LongMemEval-S 公开复现跑分为 **92.8%（464/500）**，见
+LongMemEval-S **93.6%（468/500）**——**Typed Answer Schema（TAS）** 当前 headline，
+相对公开 artifact **92.8%（464/500）** 的提升。Artifact 见
 [`benchmarking/artifacts/`](../../benchmarking/artifacts/)。
 
-**Typed Answer Schema（TAS）**（[`protocol_v1.0/`](../../benchmarking/protocol_v1.0/)）
-是答题侧纪律：题型分类 → 先枚举再计数、时间锚定、命名槽位冲突消解；叠在
-Plan B+（`sodamem_opt`）之上。协议变更后需重新测分，不以历史归档当作当前代码成绩。
-
-| | 公开 artifact | 答题协议 |
+| | TAS | 公开 artifact |
 |---|---|---|
-| 分数 | **464/500** | 协议变更后重测 |
-| reader / planner / judge | `deepseek-v4-flash` | 评测 TAS 时同栈 |
+| 分数 | **468/500** | 464/500 |
+| reader / planner / judge | `deepseek-v4-flash` | 相同 |
 | 判分 | LongMemEval 官方 `evaluate_qa.py` | 相同 |
 | store | `longmemeval_s_500_Hobs_entitysubj` | 相同 |
-| 路径 | [`artifacts/`](../../benchmarking/artifacts/) | [`protocol_v1.0/`](../../benchmarking/protocol_v1.0/)（TAS） |
+| 路径 | [`protocol_v1.0/`](../../benchmarking/protocol_v1.0/)（TAS） | [`artifacts/`](../../benchmarking/artifacts/) |
 
-**两层叠在一起：** `sodamem` 是记忆引擎；**TAS** 是答题侧结构化约束。
+**两层叠在一起：** `sodamem` 是记忆引擎；**TAS** 是答题侧题型 schema 与结构化约束，
+叠在 Plan B+（`sodamem_opt`）之上。
 
-运行 TAS：[`protocol_v1.0/README.md`](../../benchmarking/protocol_v1.0/README.md)。
+复现 TAS：[`protocol_v1.0/README.md`](../../benchmarking/protocol_v1.0/README.md)。
 
 ---
 

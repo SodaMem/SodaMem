@@ -1,4 +1,4 @@
-"""TAS schema: task typing only — no per-question entity packs."""
+"""TAS schema: task typing routes questions to structured answer constraints."""
 from __future__ import annotations
 
 import sys

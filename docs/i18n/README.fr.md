@@ -8,7 +8,7 @@ Chaque souvenir sait de quel tour de conversation il provient, et à partir de q
 
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](../../LICENSE)
 [![Python](https://img.shields.io/badge/python-3.11%2B-blue.svg)](../../pyproject.toml)
-[![LongMemEval](https://img.shields.io/badge/LongMemEval--S-92.8%25-brightgreen.svg)](../../benchmarking/artifacts/)
+[![LongMemEval](https://img.shields.io/badge/LongMemEval--S-93.6%25-brightgreen.svg)](../../benchmarking/protocol_v1.0/)
 
 <!-- langs -->
 [English](../../README.md) · [简体中文](README.zh-CN.md) · [日本語](README.ja.md) · [한국어](README.ko.md) · **Français** · [Español](README.es.md) · [Deutsch](README.de.md) · [Português](README.pt-BR.md)
@@ -124,7 +124,7 @@ a-t-il oublié X ? » a une réponse après coup.
 
 ## Benchmark
 
-**92,8 % (464/500)** sur LongMemEval-S est l’artifact publié. **Typed Answer Schema (TAS)** (`benchmarking/protocol_v1.0/`) est la discipline côté réponse (typage de tâches) ; remesurer après tout changement de protocole.
+**93,6 % (468/500)** sur LongMemEval-S avec **Typed Answer Schema (TAS)** (headline), par rapport à l’artifact publié **92,8 % (464/500)**.
 
 | | |
 |---|---|

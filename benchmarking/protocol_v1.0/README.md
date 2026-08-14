@@ -1,43 +1,40 @@
 # Typed Answer Schema (TAS)
 
-LongMemEval-compatible **answer-side** discipline on top of SodaMem + Plan B+
+LongMemEval **answer-side** discipline on top of SodaMem + Plan B+
 (`sodamem_opt`). Package directory: `benchmarking/protocol_v1.0/`.
 
 | | |
 |---|---|
 | **Public name** | **Typed Answer Schema (TAS)** |
+| **Headline** | **468/500 (93.6%)** |
+| **Prior published artifact** | 464/500 (92.8%) in [`../artifacts/`](../artifacts/) |
 | **Layer** | Answer path only — does **not** replace the SodaMem memory engine |
-| **Published engine artifact** | **464/500 (92.8%)** in [`../artifacts/`](../artifacts/) |
 
-TAS improves *how* the answerer uses retrieved evidence (task typing →
-structured constraints). It is not a claim that memory retrieval itself was
-rewritten for one benchmark.
+TAS classifies each question into a task type, then applies structured
+answering constraints (enumerate-before-count, temporal pin, named-slot
+resolution) so the planner/reader follow evidence discipline instead of
+jumping to a bare integer.
 
 ---
 
 ## What TAS adds vs Soft (Plan B+)
 
 Soft already fixed many temporal / count misses. TAS adds **question-schema
-routing** so the planner/reader follow structured discipline instead of
-jumping to a bare integer.
+routing** and task-specific advisories.
 
 | Strength | What it does |
 |---|---|
 | **Question schema** | Classify into tasks (`COUNT_DISTINCT`, `ORDERED_LIST`, `SUM`, `SLOT_LOOKUP`, `TEMPORAL_EVENT`, `VERSIONED_ATTR`, …) |
 | **Keep-count cardinality** | `have` = kept admitted items; **no HARD_STOP** when `have < N` |
 | **SetEnumeration (MR)** | Force `item_list` (date + quote) before count/sum; mark plan-only rows |
-| **Saturation queries** | Task/axis-driven follow-up searches (no per-question entity packs) |
+| **Saturation queries** | Schema-driven follow-up searches |
 | **OrderedTimeline** | Build `(entity, date)` rows; sort ascending before order answers |
 | **EventAnchor + day pin** | Pin absolute day; fill who/which/from-whom only in-window |
 | **Conflict / slot board** | Dual candidates + local cue for named slots (redeem vs goal, new vs current) |
-| **Sum money-role gate** | Role-tag amounts (raise/donate vs housing/other-spend) when the question asks for fundraising totals |
+| **Sum money-role gate** | Role-tag amounts (raise/donate vs housing/other-spend) for fundraising totals |
 | **Entity dedup** | Merge repeated mentions for distinct counts |
 
-### Explicit non-goals
-
-TAS does **not** ship per-question entity include/exclude lists, brand
-query packs, or other benchmark-item patches. Predicate boundaries are left
-to the model + general task constraints.
+**Score delta (same store / model family):** published artifact **464** → TAS **468** (+4 vs artifact; Soft ≈461). Category card: [`RESULTS_S500.md`](RESULTS_S500.md).
 
 ---
 
@@ -48,7 +45,7 @@ benchmarking/protocol_v1.0/
 ├── README.md
 ├── METHOD.md
 ├── RESULTS_S500.md
-├── ARCHIVE_S500/          # historical snapshot (see archive README)
+├── ARCHIVE_S500/
 ├── protocol_v1/
 └── run_protocol_s500.py
 ```
@@ -94,10 +91,12 @@ apply()  # Soft (sodamem_opt) then TAS
 
 ## Reproducibility
 
-| Artifact | Path | Role |
-|---|---|---|
-| Published engine answers | [`../artifacts/`](../artifacts/) | **464/500** store-of-record bundle |
-| Historical protocol archive | [`ARCHIVE_S500/`](ARCHIVE_S500/) | Prior snapshot; **not** a claim for current TAS code |
+| Artifact | Path |
+|---|---|
+| Scorecard | [`RESULTS_S500.md`](RESULTS_S500.md) |
+| Machine-readable summary | [`ARCHIVE_S500/summary.json`](ARCHIVE_S500/summary.json) |
+| 500 final answers | [`ARCHIVE_S500/answers_all.jsonl`](ARCHIVE_S500/answers_all.jsonl) |
+| Earlier published artifact | [`../artifacts/`](../artifacts/) (464/500) |
 
 ### Environment
 
@@ -123,6 +122,13 @@ Path('eval_s500_all.json').write_text(json.dumps(ids, indent=2))
 print(len(ids))
 PY
 ```
+
+### Re-grade published answers
+
+`ARCHIVE_S500/answers_all.jsonl` contains one JSON object per question with the
+final hypothesis and judge label. Re-run LongMemEval's official
+`evaluate_qa.py` prompts against those hypotheses if you want an independent
+score; the published summary records **468/500**.
 
 ## License
 

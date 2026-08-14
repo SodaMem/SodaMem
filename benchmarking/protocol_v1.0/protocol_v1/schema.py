@@ -1,9 +1,7 @@
 """Typed Answer Schema (TAS) — heuristic question typing (no LLM).
 
-Layer kept on purpose: map surface phrasing to a *task type* so the answer
-path can apply general engineering constraints (enumerate-before-count,
-temporal pin, versioned-slot conflict). This module intentionally does **not**
-attach per-question entity include/exclude lists.
+Map surface phrasing to a task type so the answer path can apply structured
+constraints (enumerate-before-count, temporal pin, named-slot conflict).
 """
 from __future__ import annotations
 
@@ -37,8 +35,6 @@ class QuestionSchema:
     axis: Axis = "auto"
     needs_money_pass: bool = False
     needs_saturation: bool = False
-    # Retained for API compatibility with admission/completeness; TAS does not
-    # populate per-question entity filters.
     exclude_predicates: tuple[str, ...] = ()
     include_hints: tuple[str, ...] = ()
     notes: tuple[str, ...] = field(default_factory=tuple)

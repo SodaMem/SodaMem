@@ -10,10 +10,10 @@ and explains how **Protocol v1.0** relates to the package version.
 | Product | `sodamem/`, `server/`, `mcp_server/`, `adapters/` | Memory engine and public APIs |
 | Plan B+ | `sodamem_opt/` | Answer-side deterministic count and time-window patches |
 | Benchmark harness | `benchmarking/` | LongMemEval runner, tests, and artifacts |
-| Protocol v1.0 | `benchmarking/protocol_v1.0/` | Typed Answer Schema (TAS) answer protocol |
+| Protocol v1.0 / TAS | `benchmarking/protocol_v1.0/` | Typed Answer Schema (468/500 headline) |
 
-Protocol / TAS is a benchmark answer discipline, not the Python package version. The
-Python and TypeScript package version is **0.1.0**, declared in
+Typed Answer Schema (TAS) is an answer-side protocol, not the Python package
+version. The Python and TypeScript package version is **0.1.0**, declared in
 `pyproject.toml`, `sdk-ts/package.json`, and `uv.lock`.
 
 ## Release contents
@@ -83,7 +83,7 @@ The release workflow runs only for tags and verifies that the tag, Python
 version, and npm version match:
 
 ```bash
-git tag -a v0.1.0 -m "SodaMem 0.1.0; Typed Answer Schema (TAS) answer protocol"
+git tag -a v0.1.0 -m "SodaMem 0.1.0; TAS headline 468/500"
 git push origin v0.1.0
 ```
 

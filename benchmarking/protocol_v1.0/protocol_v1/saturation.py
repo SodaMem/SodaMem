@@ -1,7 +1,4 @@
-"""Enumeration saturation — schema-routed follow-up queries (TAS).
-
-Only task-type and axis cues are used. No per-question brand/entity query packs.
-"""
+"""Enumeration saturation — schema-routed follow-up queries (TAS)."""
 from __future__ import annotations
 
 from typing import Optional
