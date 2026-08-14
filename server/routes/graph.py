@@ -37,7 +37,7 @@ def _tool(user_id: str):
 
 
 @router.get("/v1/entity_timeline", response_model=EntityTimelineResponse)
-async def entity_timeline(
+def entity_timeline(
     user_id: str = Query(..., min_length=1, max_length=128),
     entity_id: str = Query(..., min_length=1),
     agent_id: str | None = Query(default=None, max_length=128),
@@ -53,7 +53,7 @@ async def entity_timeline(
 
 
 @router.get("/v1/explore", response_model=ExploreResponse)
-async def explore(
+def explore(
     user_id: str = Query(..., min_length=1, max_length=128),
     start_id: str = Query(..., min_length=1),
     depth: int = Query(default=1, ge=1, le=3),
@@ -69,7 +69,7 @@ async def explore(
 
 
 @router.post("/v1/refine", response_model=RefineResponse)
-async def refine(request: RefineRequest) -> RefineResponse:
+def refine(request: RefineRequest) -> RefineResponse:
     reject_unsupported_scope(request.agent_id, request.run_id, request.project_id)
     return RefineResponse(**_tool(request.user_id).refine(
         request.query,

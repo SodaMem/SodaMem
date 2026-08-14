@@ -86,6 +86,56 @@ apply()  # Soft (sodamem_opt) then Protocol v1.0
 
 ---
 
+
+---
+
+## Reproducibility
+
+Published headline materials:
+
+| Artifact | Path |
+|---|---|
+| Scorecard | [`RESULTS_S500.md`](RESULTS_S500.md) |
+| Machine-readable summary | [`ARCHIVE_S500/summary.json`](ARCHIVE_S500/summary.json) |
+| 500 final answers | [`ARCHIVE_S500/answers_all.jsonl`](ARCHIVE_S500/answers_all.jsonl) |
+
+### Environment
+
+```bash
+export SODAMEM_REPO="$(pwd)"
+export SODAMEM_BENCH_DATA=/path/to/bench-data          # questions_slim.json + anchors
+export SODAMEM_BENCH_STORES=/path/to/longmemeval_s_500_Hobs_entitysubj
+export DEEPSEEK_API_KEY=...                            # or SODAMEM_LLM_API_KEY
+```
+
+`SODAMEM_BENCH_DATA` must contain the licensed LongMemEval slim question file
+used by `benchmarking/paths.py`. The frozen store is **not** shipped in git
+(size / third-party corpus); build or obtain `longmemeval_s_500_Hobs_entitysubj`
+with 500 user directories each containing `memory.db`.
+
+### ID list for `--only`
+
+Generate a 500-id list from the slim questions file:
+
+```bash
+python - <<'PY'
+import json
+from pathlib import Path
+import os
+q = json.loads(Path(os.environ['SODAMEM_BENCH_DATA'], 'questions_slim.json').read_text())
+ids = [row['eval_id'] for row in q]
+Path('eval_s500_all.json').write_text(json.dumps(ids, indent=2))
+print(len(ids))
+PY
+```
+
+### Re-grade published answers
+
+`ARCHIVE_S500/answers_all.jsonl` contains one JSON object per question with the
+final hypothesis and judge label. Re-run LongMemEval's official
+`evaluate_qa.py` prompts against those hypotheses if you want an independent
+score; the published summary already records **468/500**.
+
 ## License
 
 Apache-2.0 (same as this repository).

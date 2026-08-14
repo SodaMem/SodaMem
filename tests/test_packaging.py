@@ -41,7 +41,7 @@ def _top_level_packages() -> set[str]:
 
 
 def test_every_top_level_package_is_declared_for_packaging():
-    cfg = tomllib.loads((ROOT / "pyproject.toml").read_text())
+    cfg = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
     include = cfg["tool"]["setuptools"]["packages"]["find"]["include"]
     declared = {pattern.rstrip("*") for pattern in include}
     missing = {pkg for pkg in _top_level_packages() if pkg not in declared}
