@@ -6,7 +6,8 @@ split along spec §6's package-boundary rules into
 `base.py` (this file: the ABC + usage bookkeeping + env-driven client
 knobs shared by every provider), `factory.py` (provider construction +
 retry shape), `anthropic.py`/`openai_compat.py` (one concrete provider
-each) and `testing.py` (test doubles).
+each), `testing.py` (test doubles), and `registry_data.py` (the model
+capability table, formerly a JSON file).
 
 One interface change from the source: `LLMProvider.call()` is renamed
 `complete()` here, to sit next to the new `acomplete()` (D8 — async support,

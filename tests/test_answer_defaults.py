@@ -26,7 +26,7 @@ def test_the_c2_configuration_is_the_default():
 
 
 def test_the_c3_mechanisms_are_the_default():
-    """Promoted 0731 after the c3 full-500 run: 453/500 —
+    """Promoted 0731 after the c3 full-500 (run-c3 @ 58c95d2): 453/500 —
     the series' best — with finalization bounces 221 -> 27 (family 151 -> 0,
     claim-omission 61 -> 0), tokens a further −10.5% on c2, and the 143
     autocalled questions scoring 137 against 136 for the same questions
@@ -43,6 +43,7 @@ def test_the_c3_mechanisms_are_the_default():
 def test_the_unresolved_arms_stay_off_by_default():
     config = PlannerConfig()
     assert config.abstention_gate is False
+    assert config.time_window is False
 
 
 def test_count_roster_promoted_by_the_stable_set_measurement():

@@ -203,7 +203,7 @@ def test_running_out_of_steps_with_evidence_in_hand_is_not_an_abstention():
 # ---------------------------------------------------------------------------
 # The gate changes the scoring path, so it ships default-OFF behind a flag and
 # does not become the default until it beats the baseline on a full-500 paired
-# run. Same rule the reader arms follow: 未过门不得转正.
+# run. Same rule 1c2cee5 set for the reader arms: 未过门不得转正.
 # ---------------------------------------------------------------------------
 
 def test_the_gate_is_off_by_default():

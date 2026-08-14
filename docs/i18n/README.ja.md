@@ -1,9 +1,6 @@
 <div align="center">
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="../assets/logo-dark.webp">
-  <img src="../assets/logo.webp" alt="SodaMem" width="260">
-</picture>
+# SodaMem
 
 **AI エージェントのための、証拠を辿れる時間軸つきメモリ層。**
 
@@ -11,64 +8,15 @@
 
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](../../LICENSE)
 [![Python](https://img.shields.io/badge/python-3.11%2B-blue.svg)](../../pyproject.toml)
-[![LongMemEval](https://img.shields.io/badge/LongMemEval-92.8%25-brightgreen.svg)](../../benchmarking/artifacts/)
-[![LoCoMo](https://img.shields.io/badge/LoCoMo-86.88%25-brightgreen.svg)](../../benchmarking/README.md#locomo-cat-1-4)
-[![Discussions](https://img.shields.io/github/discussions/SodaMem/SodaMem?logo=github&label=discussions)](https://github.com/SodaMem/SodaMem/discussions)
+[![LongMemEval](https://img.shields.io/badge/LongMemEval--S-92.8%25-brightgreen.svg)](../../benchmarking/artifacts/)
 
 <!-- langs -->
 [English](../../README.md) · [简体中文](README.zh-CN.md) · **日本語** · [한국어](README.ko.md) · [Français](README.fr.md) · [Español](README.es.md) · [Deutsch](README.de.md) · [Português](README.pt-BR.md)
 <!-- /langs -->
 
-<img src="../assets/benchmark-cost-accuracy.webp" alt="Cost-accuracy trade-off on LongMemEval-S" width="760">
-
-*縦軸は正確度、横軸は 1 問あたりの推定 API コスト。意味があるのは左上の象限です。*
-
 </div>
 
 ---
-
-## ベンチマーク
-
-<div align="center">
-  <img src="../assets/benchmark-longmemeval.webp" alt="LongMemEval: SodaMem 92.8%, Hindsight 91.4%, Mem0 OSS 91.0%" width="720">
-</div>
-
-LongMemEval **92.8%（464/500）**。
-
-| | |
-|---|---|
-| reader / planner / judge | `deepseek-v4-flash` |
-| 判定プロンプト | LongMemEval 公式 `evaluate_qa.py` のテンプレート、バイト単位で同一 |
-| ストア | `longmemeval_s_500_Hobs_entitysubj`、500 ユーザー / 235,840 ファクト |
-
-**回答も、取得した記憶も、すべて公開しています**
-（[`benchmarking/artifacts/`](../../benchmarking/artifacts/)）——500 件の回答
-全文と 8,427 件の証拠。任意の judge で採点し直すことも、取得コンテキストを
-自前の reader に渡して数字がどう動くか確かめることもできます。どちらも当方の
-サービスへのアクセスは不要です。
-
-<div align="center">
-  <img src="../assets/benchmark-locomo.webp" alt="LoCoMo: SodaMem 86.88%, MemMachine 91.69%, Hindsight 89.61%, MIRIX 85.38%, Memobase 75.78%, Mem0 OSS 66.88%" width="720">
-</div>
-
-LoCoMo **86.88%（1338/1540）**。エンドツーエンドの QA 正解率、
-判定は LLM-as-judge。
-
-| | |
-|---|---|
-| reader / planner / judge | `deepseek-v4-flash` |
-| 判定プロンプト | LongMemEval 公式のテンプレート、バイト単位で複製 |
-| ストア | `locomo10_Hobs`、10 ユーザーストア / 2,905 ファクトイベント |
-| コード | プレリリースビルド —— 公開履歴は v0.1.0 から始まります |
-
-**LoCoMo については問題ごとの成果物を一切公開していません** —— 回答も、取得
-コンテキストも、run ディレクトリもありません。公開しているのは
-[`benchmarking/README.md` の LoCoMo セクション](../../benchmarking/README.md#locomo-cat-1-4)
-です。カテゴリ別の内訳、会話ごとの分布、provenance と再現手順が載っています。
-
----
-
-## クイックスタート
 
 ```bash
 pip install "sodamem[chroma,llm]"
@@ -108,18 +56,6 @@ print(block.citations)   # その一行一行の根拠
 多くのメモリシステムが保存するのは「何を言ったか」です。実際に破綻を招くのは
 **それがいつ真でなくなったか**と**どこから来たか**——この二つはデータモデルで
 解く問題であり、ベクトルインデックスを大きくしても解決しません。
-
-
-| 問い | よくある答え | SodaMem |
-|---|---|---|
-| この記憶はどこから来たのか？ | 類似度スコアと、いくつかのメタデータ | `FactEvent → SourceSpan → RawTurn` の外部キー連鎖が、まさにその発話まで辿れる |
-| ユーザーが前言を撤回したら？ | 上書きし、古い値は消える | 追加のみ、加えて `SUPERSEDES` エッジ。旧版は `valid_until` で閉じ、読める状態で残る |
-| 「去年シカゴに引っ越した」と「来年引っ越す」 | タイムスタンプ一つ | 四つの時間軸：発生 / 有効 / 発話 / 保存 |
-| 検索 1 回のコストは？ | 検索のたびに LLM 呼び出し | `build_context` はモデル呼び出し **ゼロ**、引用つきの完成プロンプトを返す |
-| 同じクエリを二度投げたら同じ答えか？ | モデルのサンプリング次第 | 決定的な融合：同じストア、同じクエリ、同じ結果 |
-| なぜ X を忘れたのか？ | 答えようがない | `/v1/events` が追加・上書き・削除をすべて理由つきで記録 |
-
-以下の各節はこの表の 1 行ずつを展開したものです。どの行もこのリポジトリ内で確認でき、信じてもらう必要はありません。
 
 ### すべての記憶が証拠を携える
 
@@ -180,6 +116,24 @@ LLM オーガナイザ（value-board / enumeration-sweep）を走らせ、「知
 
 ---
 
+## ベンチマーク
+
+LongMemEval-S **92.8%（464/500）**。
+
+| | |
+|---|---|
+| reader / planner / judge | `deepseek-v4-flash` |
+| 判定プロンプト | LongMemEval 公式 `evaluate_qa.py` のテンプレート、バイト単位で同一 |
+| ストア | `longmemeval_s_500_Hobs_entitysubj`、500 ユーザー / 235,840 ファクト |
+
+**回答も、取得した記憶も、すべて公開しています**
+（[`benchmarking/artifacts/`](../../benchmarking/artifacts/)）——500 件の回答
+全文と 8,427 件の証拠。任意の judge で採点し直すことも、取得コンテキストを
+自前の reader に渡して数字がどう動くか確かめることもできます。どちらも当方の
+サービスへのアクセスは不要です。
+
+---
+
 ## インストール
 
 | extra | 追加されるもの |
@@ -196,6 +150,11 @@ base は `pydantic`、`numpy`、`rank-bm25`、`python-dateutil` だけを引き�
 このリストがうっかり伸びたらビルドが落ちる CI ゲートを置いています。
 
 
+PyPI にはまだありません。最初のタグ公開まではソースから：
+
+```bash
+pip install "git+https://github.com/xlows1206/SodaMem#egg=sodamem[chroma,llm]"
+```
 
 ---
 
@@ -266,13 +225,9 @@ SodaMem 自身はスケジューラを持ちません。
 | | |
 |---|---|
 | [コーディングツール連携](../../README.md#coding-tools) | Claude Code、Cursor などの MCP クライアント |
-| [ベンチマーク手法](../../benchmarking/README.md) | ベンチマークの数字をどう出したか |
+| [ベンチマーク手法](../../benchmarking/README.md) | LongMemEval の数字をどう出したか |
 
 ---
-
-## 謝辞
-
-本プロジェクトの土台となった初期の作業に貢献してくださった [@sunjiajunsunjiajun](https://github.com/sunjiajunsunjiajun) and [@Lum1104](https://github.com/Lum1104) に感謝します。
 
 ## ライセンス
 

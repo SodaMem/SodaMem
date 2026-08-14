@@ -100,7 +100,7 @@ where = ["."]
 # 0727: `pip install sodamem[server]` installed FastAPI and then had no server
 # code to run — a broken extra that nothing caught, because the dev tree
 # imports from source. tests/test_packaging.py now pins this.
-include = ["sodamem*", "sodamem_cli*", "mcp_server*", "server*", "adapters*"]
+include = ["sodamem*", "sodamem_cli*", "sodamem_opt*", "mcp_server*", "server*", "adapters*"]
 
 [tool.setuptools.package-data]
 sodamem = ["py.typed"]

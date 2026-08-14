@@ -15,7 +15,7 @@ if TYPE_CHECKING:
     from sodamem.memory.storage.store import Store
 
 
-__version__ = "0.1.0"
+__version__ = "0.0.1"
 
 
 @dataclass
@@ -179,9 +179,9 @@ class SodaMem:
         from sodamem.prompts import extraction as _ex
         emb = embedder or OnnxMiniLmEmbedder()
         # Fingerprint exactly the prompts the extraction path assembles
-        # (EXTRACT + DETERMINISM — the two the extractor actually assembles).
-        # Fingerprinting text that never reaches the LLM would let two
-        # behaviorally different stores share a fingerprint.
+        # (EXTRACT + DETERMINISM — COARSE_RULES is an unwired asset, see
+        # prompts/extraction.py). Fingerprinting text that never reaches the
+        # LLM would let two behaviorally different stores share a fingerprint.
         fp_prompts = prompts if prompts is not None else {
             "extract_system": _ex.EXTRACT_SYSTEM_PROMPT,
             "determinism_rules": _ex.DETERMINISM_RULES,

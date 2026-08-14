@@ -661,6 +661,56 @@ def load_only_ids(path: str) -> set[str]:
     return keep
 
 
+def parse_q_range(spec: str) -> tuple[int, int]:
+    """Parse inclusive 1-based question numbers: ``1-300``, ``51-100``.
+
+    Matches ``eval_id`` forms like ``q051`` / ``q51`` (leading zeros optional).
+    """
+    raw = (spec or "").strip()
+    if not raw:
+        raise SystemExit("--range: empty (expected START-END, e.g. 1-300)")
+    if raw.count("-") != 1:
+        raise SystemExit(
+            f"--range {spec!r}: expected START-END with one hyphen "
+            f"(e.g. 1-300 or 51-100)"
+        )
+    left, right = raw.split("-", 1)
+    try:
+        lo, hi = int(left.strip()), int(right.strip())
+    except ValueError as e:
+        raise SystemExit(
+            f"--range {spec!r}: START and END must be integers"
+        ) from e
+    if lo < 1 or hi < 1:
+        raise SystemExit(f"--range {spec!r}: numbers must be >= 1")
+    if hi < lo:
+        raise SystemExit(f"--range {spec!r}: END ({hi}) < START ({lo})")
+    return lo, hi
+
+
+def eval_id_number(eval_id: str) -> int | None:
+    """``q051`` / ``Q51`` → 51; non-numeric ids → None."""
+    s = str(eval_id).strip()
+    if len(s) >= 2 and s[0] in "qQ":
+        s = s[1:]
+    try:
+        return int(s)
+    except ValueError:
+        return None
+
+
+def filter_by_q_range(questions: list, lo: int, hi: int) -> list:
+    """Keep questions whose eval_id number is in ``[lo, hi]`` inclusive."""
+    out = []
+    for q in questions:
+        n = eval_id_number(q.get("eval_id", ""))
+        if n is not None and lo <= n <= hi:
+            out.append(q)
+    return out
+
+
+
+
 def mcnemar_exact(b: int, c: int) -> float:
     """Two-sided exact binomial on discordant pairs (b=anchor-only-correct,
     c=new-only-correct).
@@ -752,6 +802,16 @@ def main() -> int:
                          "stable-right regression sample resolve a targeted "
                          "arm at 1/13 the cost of a full 500, where the "
                          "±8-12 noise floor would swallow the effect.")
+    ap.add_argument(
+        "--range",
+        dest="q_range",
+        default="",
+        help="inclusive question-number slice, e.g. 1-300 or 51-100 "
+             "(matches eval_id q001..q500). Combines with --only / "
+             "--category as an intersection. For splitting one 500-run "
+             "across machines, use different --out dirs then merge "
+             "answers.jsonl.",
+    )
     args = ap.parse_args()
 
     # Presence check only — the key is used in the subprocess worker, which
@@ -778,6 +838,14 @@ def main() -> int:
     if args.only:
         keep = load_only_ids(args.only)
         questions = [q for q in questions if q["eval_id"] in keep]
+    if args.q_range:
+        lo, hi = parse_q_range(args.q_range)
+        questions = filter_by_q_range(questions, lo, hi)
+        if not questions:
+            raise SystemExit(
+                f"--range {args.q_range}: no questions left after filter "
+                f"(check --only / stores / numbering)"
+            )
     anchor, anchor_provenance = _load_anchor(_paths.anchor_labels())
     context_offload_supported = _accepts_keyword(PlannerConfig, "context_offload")
     context_offload_effective = CONTEXT_OFFLOAD and context_offload_supported
@@ -792,6 +860,7 @@ def main() -> int:
           f"context_offload_supported={context_offload_supported} "
           f"stall_thresholds=dup{STALL_DUP_THRESHOLD}/zero{STALL_ZERO_THRESHOLD}  "
           f"category={args.category or 'ALL'}  "
+          f"range={args.q_range or 'ALL'}  "
           f"out={args.out}", flush=True)
 
     done, previously_errored = load_previous_answers(answers_path)

@@ -376,18 +376,13 @@ def test_persist_audit_bundle_prune_failure_rolls_back_insert(tmp_path, monkeypa
     ).fetchone()[0] == 0
 
 
-def test_entity_rules_is_composed_not_flattened_onto_store():
-    """`Store` exposes the dependency index through `store.entity_rules`, not
-    as forwarding stubs on itself. The 19 DR-011 CRUD methods this test used
-    to exercise were deleted 0806 — none had a call site anywhere, which the
-    module docstring had said since it was written."""
-    from sodamem.memory.storage.entity_rules import EntityRulesStore
-    from sodamem.memory.storage.store import Store
-
-    public = [m for m in dir(EntityRulesStore) if not m.startswith("_")]
-    assert sorted(public) == ["replace_summary_dependencies", "summaries_depending_on"]
-    # Composition, not inheritance: none of them are forwarding stubs on Store.
-    assert not [m for m in public if hasattr(Store, m)]
+def test_entity_rules_reachable_via_composition_not_inheritance(tmp_path):
+    store = open_store(tmp_path / "s.sqlite3", prompts={"x": "y"}, embedder=_FakeEmbedder())
+    assert not hasattr(store, "upsert_relation_definition")  # not flattened onto Store
+    store.entity_rules.upsert_relation_definition({"relation_key": "works_at"})
+    got = store.entity_rules.get_relation_definition("works_at")
+    assert got is not None
+    assert got["relation_key"] == "works_at"
 
 
 def test_chroma_adapter_query_and_document_embeddings_identical():

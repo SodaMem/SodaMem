@@ -61,7 +61,7 @@ from sodamem.models import FactEvent, FactStatus
 from . import vector
 from .bm25 import get_bm25_index
 from .config import Degradation, RetrievalConfig
-from .query_plan import QueryPlan
+from .query_plan import QueryPlan, temporal_match
 
 logger = logging.getLogger(__name__)
 
@@ -154,8 +154,12 @@ def _fact_time_keys(fact: FactEvent) -> list[str]:
     if not ts:
         return []
     try:
-        dt = datetime.fromtimestamp(float(ts))
-    except (ValueError, OSError, OverflowError) as e:
+        from sodamem.memory._shared import _safe_fromtimestamp
+
+        dt = _safe_fromtimestamp(ts)
+        if dt is None:
+            raise ValueError("unsafe epoch")
+    except Exception as e:
         logger.warning(
             "_fact_time_keys: unconvertible timestamp %r on fact %s (%s) — no "
             "date-prefix boost keys for this fact", ts, fact.fact_id, e,
@@ -303,20 +307,39 @@ class MultiPathFusion:
             units = self._merge_same_event(units, trace)
 
         # ---- Noisy-OR 连接密度 + 时间过滤/加分（DR-013）+ 统一排序 ----
+        plan_active = bool(plan.trace.get("applied")) and plan.temporal_policy != "none"
         kept: list[RankingUnit] = []
         for u in units.values():
             u.connection_density = _noisy_or(u.head_contributions.values())
-            # The DR-013 hard_filter/soft_boost branch lived here until 0806.
-            # It ran when `plan.trace["applied"]` was true and
-            # `temporal_policy != "none"` — a combination `QueryPlan.default()`
-            # cannot produce, and `default()` is the only constructor any
-            # production path reaches. `parse_query_plan`, the one would-be
-            # producer of a non-default plan, was never ported. So this was
-            # always the taken branch; it is now the only one.
-            if cfg.temporal_enabled and u.kind == "fact_event":
-                fact = self._store.get_fact_event(u.object_id)
-                if fact is not None:
-                    u.temporal_boost = temporal_boost_for(fact, date_prefixes, cfg.max_temporal_boost)
+            if not cfg.temporal_enabled:
+                pass  # D 变体：关时间加分
+            elif plan_active:
+                fact = self._store.get_fact_event(u.object_id) if u.kind == "fact_event" else None
+                match = temporal_match(fact, plan) if fact is not None else None
+                if plan.temporal_policy == "hard_filter":
+                    if match is True:
+                        u.temporal_boost = cfg.max_temporal_boost  # 命中明确窗口仍加分（DR-013 L2315）
+                    else:
+                        excluded.append({
+                            # kind-aware id so a raw_turn unit isn't mislabeled ev_span:
+                            "evidence_id": {"fact_event": "ev_fact:", "raw_turn": "ev_raw:"}.get(
+                                u.kind, "ev_span:") + u.object_id,
+                            "fact_id": u.object_id if u.kind == "fact_event" else None,
+                            "excluded_reason": "temporal_hard_filter",
+                            "no_comparable_time": match is None,
+                            "fact_occurred_start": getattr(fact, "occurred_start", None) if fact else None,
+                            "fact_valid_from": getattr(fact, "valid_from", None) if fact else None,
+                        })
+                        continue
+                else:  # soft_boost
+                    if match is True:
+                        u.temporal_boost = cfg.max_temporal_boost
+            else:
+                # query_plan 关闭：沿用旧的确定性日期前缀加分（零回归）。
+                if u.kind == "fact_event":
+                    fact = self._store.get_fact_event(u.object_id)
+                    if fact is not None:
+                        u.temporal_boost = temporal_boost_for(fact, date_prefixes, cfg.max_temporal_boost)
             u.ranking_confidence = u.connection_density + u.temporal_boost
             kept.append(u)
 
