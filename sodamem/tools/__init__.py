@@ -316,7 +316,7 @@ _DISPATCH_TABLE = {
     "memory.browser.event-timeline": "event_timeline",
     "memory.browser.date-calc": "date_calc",
     "memory.browser.evidence-count": "evidence_count",
-    # Legacy fast-recall path used by `drift-glass-cli memory retrieve auto`.
+    # Legacy fast-recall path used by `sodamem` CLI memory retrieve auto.
     "memory.retrieve": "retrieve_auto",
 }
 
@@ -1180,7 +1180,7 @@ class MemoryTool:
         top_k: int = 5,
         as_of: datetime | None = None,
     ) -> dict:
-        """Fast-recall path used by `drift-glass-cli memory retrieve auto`.
+        """Fast-recall path used by `sodamem` CLI memory retrieve auto.
 
         Projects already-ranked search evidence to the existing CLI retrieve.ts
         output shape. See module docstring for why this is NOT a byte-exact
