@@ -1,6 +1,9 @@
-# Protocol v1.0 — Full S500
+# RESULTS_S500 — historical protocol snapshot
 
-**Correct:** 468/500 = **93.6%**
+**Status:** Historical scorecard only. Current public method is **Typed Answer
+Schema (TAS)** in this directory; re-measure before quoting a TAS score.
+
+**Historical correct:** 468/500 = **93.6%** (prior configuration)
 
 | Cat | Score |
 |-----|-------|
@@ -10,6 +13,7 @@
 | MR | 103/121 |
 | TR | 118/127 |
 
-**Baseline:** Soft / Plan B+ ≈ **461/500**. Protocol v1.0 (keep-count) = **468/500**.
+**Baselines for context:** Soft / Plan B+ ≈ **461/500**. Published engine
+artifact = **464/500** (`benchmarking/artifacts/`).
 
-Machine-readable summary: [`ARCHIVE_S500/summary.json`](ARCHIVE_S500/summary.json).
+Machine-readable historical summary: [`ARCHIVE_S500/summary.json`](ARCHIVE_S500/summary.json).

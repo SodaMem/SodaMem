@@ -9,46 +9,46 @@ _APPLIED = False
 _TLS = threading.local()
 
 V1_PLANNER_ADDENDUM = """
-Protocol v1.0 retrieval discipline (schema-routed):
-- Parse the question into a task before finalizing.
+Typed Answer Schema (TAS) retrieval discipline:
+- Classify the question into a task type before finalizing
+  (COUNT_DISTINCT / SUM / ORDERED_LIST / SLOT_LOOKUP / TEMPORAL_EVENT /
+  VERSIONED_ATTR / ORDINARY).
 - MR SetEnumeration: for how-many/total set questions, enumerate an item_list
   (date + quote per item) before counting/summing; keep searching if N asserted
   and list shorter than N.
 - CARDINALITY / ORDERED_LIST: build (entity, date) timeline; sort ascending;
   do not finalize order while dated_rows < N.
 - SLOT / VERSIONED conflicts: conflict board of (value, slot_label); hard
-  override only with local cue + dual candidates.
+  override only with local cue + dual candidates that match the named slot.
 - TEMPORAL who/which/from-whom: EventAnchor — pin absolute day, fill only the
   who/which slot from in-window evidence.
-- SUM charity/raise: money-role gate (raise/donate vs housing/other-spend).
+- SUM money questions: role-tag amounts (raise/donate vs housing/other-spend)
+  when the question asks for a fundraising/charity total.
 - ENTITY counts: dedupe distinct entities.
-- IE/assistant paper metrics: assistant turns are valid evidence.
-- Do not loosen exclude gates (birthday≠dinner, plan≠led, got≠preorder).
+- Prefer acquisition/arrival over preorder when the question asks got/received.
+- Prefer booking-elapsed time over lead-time when asked months-ago booked.
 """
 
 V1_READER_GUIDANCE = (
-    " Protocol v1.0: Obey protocol_v1.0 advisories and SetEnumeration boards. "
+    " TAS: Obey Typed Answer Schema advisories and SetEnumeration boards. "
     "If set_enumeration_board is present, count/sum from that item_list only. "
     "If ordered_timeline is present, sort (entity, date) before answering order. "
     "If event_anchor is present, fill who/which only from the pinned day. "
     "If gated_slot_hard_bind states FINAL ANSWER MUST BE, that value is mandatory. "
-    "SUM charity: exclude housing/other-spend roles. "
-    "COUNT entity: use ENTITY DEDUP / set board. "
-    "Do not false-abstain on assistant/paper metrics."
+    "For charity/fundraising totals, sum only raise/donate-tagged amounts. "
+    "COUNT entity: use ENTITY DEDUP / set board."
 )
 
 V1_CONSTRAINTS = [
-    "Follow protocol_v1.0 advisories; honor gated_slot_hard_bind when present.",
+    "Follow TAS advisories; honor gated_slot_hard_bind when present.",
     "SetEnumeration: enumerate items before how-many/total; do not finalize if have < N.",
     "OrderedTimeline: answer order only from dated (entity, date) rows sorted ascending.",
     "EventAnchor: who/which/from-whom must come from the pinned absolute day.",
-    "Do not count excluded predicates (birthday as dinner; planning as leading).",
     "Do not answer 'booked N months in advance' when asked 'how many months ago did I book'.",
-    "Do not use preorder date when asked which device was got/received first.",
+    "Do not use preorder date when asked which item was got/received first.",
     "When both a personal points goal and a redeem/threshold appear, answer the redeem/threshold.",
-    "For charity totals, sum only raise/donate amounts; exclude mortgage/house/workshop fees.",
+    "For charity/fundraising totals, sum only raise/donate amounts; exclude housing/other-spend roles.",
 ]
-
 
 def is_applied() -> bool:
     return _APPLIED

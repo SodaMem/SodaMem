@@ -8,7 +8,7 @@ Every memory can name the turn it came from, and knows when it stopped being tru
 
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.11%2B-blue.svg)](pyproject.toml)
-[![LongMemEval](https://img.shields.io/badge/LongMemEval--S-93.6%25-brightgreen.svg)](benchmarking/protocol_v1.0/)
+[![LongMemEval](https://img.shields.io/badge/LongMemEval--S-92.8%25-brightgreen.svg)](benchmarking/artifacts/)
 
 <!-- langs -->
 **English** · [简体中文](docs/i18n/README.zh-CN.md) · [日本語](docs/i18n/README.ja.md) · [한국어](docs/i18n/README.ko.md) · [Français](docs/i18n/README.fr.md) · [Español](docs/i18n/README.es.md) · [Deutsch](docs/i18n/README.de.md) · [Português](docs/i18n/README.pt-BR.md)
@@ -135,26 +135,28 @@ Cursor hooks via `sodamem install`.
 
 ## Benchmark
 
-**93.6% (468/500)** on LongMemEval-S with **Protocol v1.0** (current headline).
-The published reproducible artifact run remains **92.8% (464/500)** — every
-answer and retrieved memory is in [`benchmarking/artifacts/`](benchmarking/artifacts/).
+**92.8% (464/500)** on LongMemEval-S is the published store-of-record artifact —
+every answer and retrieved memory is in [`benchmarking/artifacts/`](benchmarking/artifacts/).
 
-| | Protocol v1.0 (headline) | Published artifact |
+**Typed Answer Schema (TAS)** (`benchmarking/protocol_v1.0/`) is the public
+answer-side discipline: task typing → enumerate-before-count, temporal pin,
+named-slot conflict resolution. It stacks on Plan B+ (`sodamem_opt`) and is
+**not** a separate product version. Fresh scores must be re-measured when the
+protocol changes.
+
+| | Published artifact | Answer protocol |
 |---|---|---|
-| score | **468/500** | 464/500 |
-| reader / planner / judge | `deepseek-v4-flash` | same |
+| score | **464/500** | re-measure after protocol changes |
+| reader / planner / judge | `deepseek-v4-flash` | same stack when evaluating TAS |
 | judge prompts | LongMemEval `evaluate_qa.py`, byte-identical | same |
-| store | `longmemeval_s_500_Hobs_entitysubj`, 500 users / 235,840 facts | same |
-| protocol | [`benchmarking/protocol_v1.0/`](benchmarking/protocol_v1.0/) | Plan B+ baseline in artifacts |
+| store | `longmemeval_s_500_Hobs_entitysubj` | same |
+| path | [`benchmarking/artifacts/`](benchmarking/artifacts/) | [`benchmarking/protocol_v1.0/`](benchmarking/protocol_v1.0/) (TAS) |
 
-**Two layers, one stack:** `sodamem` is the memory engine; **Protocol v1.0**
-is the answer-side discipline (question schema, keep-count cardinality, TR/MR
-advisories) layered for LongMemEval. It is not a separate "SodaMem product 1.0
-release" — the Python package version is in `pyproject.toml`.
+**Two layers, one stack:** `sodamem` is the memory engine; **TAS** is answer-side
+structure for using evidence. Package version lives in `pyproject.toml`.
 
-Reproduce the headline run: see [`benchmarking/protocol_v1.0/README.md`](benchmarking/protocol_v1.0/README.md).
-Re-grade published answers: [`benchmarking/artifacts/`](benchmarking/artifacts/) —
-500 answers verbatim, 8,427 evidence rows. Neither needs our services.
+Run TAS: [`benchmarking/protocol_v1.0/README.md`](benchmarking/protocol_v1.0/README.md).
+Re-grade published answers: [`benchmarking/artifacts/`](benchmarking/artifacts/).
 
 ---
 

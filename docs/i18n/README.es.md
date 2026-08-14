@@ -8,7 +8,7 @@ Cada recuerdo sabe de qué turno de conversación proviene, y desde cuándo dej�
 
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](../../LICENSE)
 [![Python](https://img.shields.io/badge/python-3.11%2B-blue.svg)](../../pyproject.toml)
-[![LongMemEval](https://img.shields.io/badge/LongMemEval--S-93.6%25-brightgreen.svg)](../../benchmarking/protocol_v1.0/)
+[![LongMemEval](https://img.shields.io/badge/LongMemEval--S-92.8%25-brightgreen.svg)](../../benchmarking/artifacts/)
 
 <!-- langs -->
 [English](../../README.md) · [简体中文](README.zh-CN.md) · [日本語](README.ja.md) · [한국어](README.ko.md) · [Français](README.fr.md) · **Español** · [Deutsch](README.de.md) · [Português](README.pt-BR.md)
@@ -123,7 +123,7 @@ tiene respuesta a posteriori.
 
 ## Benchmark
 
-**93,6 % (468/500)** en LongMemEval-S con **Protocol v1.0** (headline). El artifact publicado sigue en **92,8 % (464/500)**.
+**92,8 % (464/500)** en LongMemEval-S es el artifact publicado. **Typed Answer Schema (TAS)** (`benchmarking/protocol_v1.0/`) es la disciplina del lado de respuesta (tipado de tareas); hay que volver a medir tras cambios de protocolo.
 
 | | |
 |---|---|

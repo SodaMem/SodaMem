@@ -8,7 +8,7 @@
 
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](../../LICENSE)
 [![Python](https://img.shields.io/badge/python-3.11%2B-blue.svg)](../../pyproject.toml)
-[![LongMemEval](https://img.shields.io/badge/LongMemEval--S-93.6%25-brightgreen.svg)](../../benchmarking/protocol_v1.0/)
+[![LongMemEval](https://img.shields.io/badge/LongMemEval--S-92.8%25-brightgreen.svg)](../../benchmarking/artifacts/)
 
 <!-- langs -->
 [English](../../README.md) · **简体中文** · [日本語](README.ja.md) · [한국어](README.ko.md) · [Français](README.fr.md) · [Español](README.es.md) · [Deutsch](README.de.md) · [Português](README.pt-BR.md)
@@ -111,23 +111,24 @@ organizer，所以那条路由的零 LLM 保证不可能被某个请求参数翻
 
 ## 跑分
 
-LongMemEval-S **93.6%（468/500）**——**Protocol v1.0** 当前 headline。
-已公开的 artifact 复现跑分仍为 **92.8%（464/500）**，见
+LongMemEval-S 公开复现跑分为 **92.8%（464/500）**，见
 [`benchmarking/artifacts/`](../../benchmarking/artifacts/)。
 
-| | Protocol v1.0 | 公开 artifact |
+**Typed Answer Schema（TAS）**（[`protocol_v1.0/`](../../benchmarking/protocol_v1.0/)）
+是答题侧纪律：题型分类 → 先枚举再计数、时间锚定、命名槽位冲突消解；叠在
+Plan B+（`sodamem_opt`）之上。协议变更后需重新测分，不以历史归档当作当前代码成绩。
+
+| | 公开 artifact | 答题协议 |
 |---|---|---|
-| 分数 | **468/500** | 464/500 |
-| reader / planner / judge | `deepseek-v4-flash` | 相同 |
+| 分数 | **464/500** | 协议变更后重测 |
+| reader / planner / judge | `deepseek-v4-flash` | 评测 TAS 时同栈 |
 | 判分 | LongMemEval 官方 `evaluate_qa.py` | 相同 |
 | store | `longmemeval_s_500_Hobs_entitysubj` | 相同 |
-| 协议树 | [`benchmarking/protocol_v1.0/`](../../benchmarking/protocol_v1.0/) | Plan B+ 基线 |
+| 路径 | [`artifacts/`](../../benchmarking/artifacts/) | [`protocol_v1.0/`](../../benchmarking/protocol_v1.0/)（TAS） |
 
-**两层叠在一起：** `sodamem` 是记忆引擎；**Protocol v1.0** 是 LongMemEval
-答题侧协议（题型 schema、keep-count 计数等），**不是** Python 包的「1.5 产品版」。
+**两层叠在一起：** `sodamem` 是记忆引擎；**TAS** 是答题侧结构化约束。
 
-复现 headline：[`protocol_v1.0/README.md`](../../benchmarking/protocol_v1.0/README.md)。
-重判 artifact：500 条答案 + 8427 条证据，无需接触我们的服务。
+运行 TAS：[`protocol_v1.0/README.md`](../../benchmarking/protocol_v1.0/README.md)。
 
 ---
 

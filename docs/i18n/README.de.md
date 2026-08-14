@@ -8,7 +8,7 @@ Jede Erinnerung weiß, aus welchem Gesprächszug sie stammt — und ab wann sie 
 
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](../../LICENSE)
 [![Python](https://img.shields.io/badge/python-3.11%2B-blue.svg)](../../pyproject.toml)
-[![LongMemEval](https://img.shields.io/badge/LongMemEval--S-93.6%25-brightgreen.svg)](../../benchmarking/protocol_v1.0/)
+[![LongMemEval](https://img.shields.io/badge/LongMemEval--S-92.8%25-brightgreen.svg)](../../benchmarking/artifacts/)
 
 <!-- langs -->
 [English](../../README.md) · [简体中文](README.zh-CN.md) · [日本語](README.ja.md) · [한국어](README.ko.md) · [Français](README.fr.md) · [Español](README.es.md) · **Deutsch** · [Português](README.pt-BR.md)
@@ -123,7 +123,7 @@ hat der Agent X vergessen?“ ist im Nachhinein beantwortbar.
 
 ## Benchmark
 
-**93,6 % (468/500)** auf LongMemEval-S mit **Protocol v1.0** (Headline). Das veröffentlichte Artifact bleibt **92,8 % (464/500)**.
+**92,8 % (464/500)** auf LongMemEval-S ist das veröffentlichte Artifact. **Typed Answer Schema (TAS)** (`benchmarking/protocol_v1.0/`) ist die Answer-side Disziplin (Task-Typing); Scores nach Protokolländerungen neu messen.
 
 | | |
 |---|---|
