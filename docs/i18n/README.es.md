@@ -123,7 +123,7 @@ tiene respuesta a posteriori.
 
 ## Benchmark
 
-**93,6 % (468/500)** en LongMemEval-S con **Protocol v1.0** (headline). El artifact publicado sigue en **92,8 % (464/500)**.
+**93,6 % (468/500)** en LongMemEval-S con **Typed Answer Schema (TAS)** (headline), frente al artifact publicado **92,8 % (464/500)**.
 
 | | |
 |---|---|

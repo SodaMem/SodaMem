@@ -1,4 +1,4 @@
-"""Slot binder advisories (v1.0: harder redeem/threshold preference)."""
+"""Slot binder advisories — named-slot discipline (TAS)."""
 from __future__ import annotations
 
 from protocol_v1.schema import QuestionSchema
@@ -7,28 +7,25 @@ from protocol_v1.schema import QuestionSchema
 def slot_advisory(schema: QuestionSchema) -> str:
     if not schema.slot_name and not schema.modifiers:
         return ""
-    lines = ["protocol_v1.0 slot_binder:"]
+    lines = ["tas slot_binder:"]
     if schema.slot_name == "redeem_threshold":
         lines.extend([
-            "- HARD: Question asks how many points are needed to REDEEM a free product.",
-            "- If evidence has BOTH a personal 'goal' (e.g. 300) AND a program redeem/"
-            "Beauty Insider/threshold number (e.g. 100), you MUST answer the redeem/"
-            "threshold number, NOT the personal goal.",
-            "- Lexical priority: redeem, Beauty Insider, free product requirement > "
-            "'my goal' / 'all set' / 'almost reaching'.",
-            "- Final answer should be the single threshold integer when known.",
+            "- Question asks for a redemption / program threshold.",
+            "- If evidence has both a personal goal and a redeem/threshold number, "
+            "answer the redeem/threshold that matches the question slot.",
+            "- Prefer lexical cues: redeem, threshold, free-product requirement "
+            "over 'my goal' / 'almost reaching'.",
         ])
     if schema.slot_name == "new_plan_speed" or "new" in schema.modifiers:
         lines.append(
-            "- Question asks for the NEW plan / upgrade target. "
-            "Prefer the upgrade statement (e.g. 500 Mbps), not a later "
-            "'my internet is 1 Gbps' current-status mention unless it clearly "
-            "describes the same new plan."
+            "- Question asks for the NEW / upgraded value. "
+            "Prefer the upgrade statement over a later current-status mention "
+            "unless it clearly describes the same new plan."
         )
-    if schema.slot_name == "prior_gadget":
+    if schema.slot_name == "prior_item":
         lines.append(
-            "- Question asks what was invested in BEFORE the Air Fryer (or named item). "
-            "Return the chronologically prior gadget, not the Air Fryer itself."
+            "- Question asks what came BEFORE a named item. "
+            "Return the chronologically prior item, not the named endpoint itself."
         )
     if schema.slot_name == "tenure_slot":
         lines.append(
@@ -45,10 +42,10 @@ def slot_advisory(schema: QuestionSchema) -> str:
 def slot_search_queries(schema: QuestionSchema) -> list[str]:
     if schema.slot_name == "redeem_threshold":
         return [
-            "Sephora Beauty Insider redeem points free skincare 100 threshold",
-            "need 100 points to redeem free product Sephora",
+            "redeem points threshold free product loyalty",
+            "points needed to redeem",
             "loyalty program redemption requirement points",
         ]
     if schema.slot_name == "new_plan_speed" or "new" in schema.modifiers:
-        return ["upgraded to 500 Mbps new internet plan", "new plan speed Mbps upgrade"]
+        return ["upgraded new plan speed", "new plan upgrade Mbps"]
     return []

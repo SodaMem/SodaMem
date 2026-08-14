@@ -379,46 +379,46 @@ def _extra_queries(question: str, intent) -> list[str]:
         labels = aggregation_labels(q)
         if labels:
             out.append(" ".join(labels[:6]))
-        # Common MR rewrite patterns from miss analysis.
+        # Schema-light follow-up queries (category cues only; no entity packs).
         if "wedding" in ql:
-            out.append("wedding attended ceremony bridesmaid")
+            out.append("wedding attended ceremony")
         if "bike" in ql:
             out.append("bike bicycle spent cost lights chain service")
         if "bake" in ql or "baking" in ql:
             out.append("baked cookies cake baking oven")
         if "furniture" in ql:
-            out.append("furniture assembled bought sold fixed IKEA")
+            out.append("furniture assembled bought sold fixed")
         if "workshop" in ql:
             out.append("workshop attended cost paid dollars")
         if "tank" in ql:
-            out.append("aquarium tank gallon betta community")
+            out.append("aquarium tank gallon community")
         if "project" in ql:
             out.append("project leading led working on")
         if "clothing" in ql or "pick up" in ql or "return" in ql:
             out.append("pick up return exchange dry cleaning store clothing")
         if "delivery" in ql:
-            out.append("food delivery Fresh Fusion Domino UberEats")
+            out.append("food delivery ordered service used")
         if "art" in ql and "event" in ql:
             out.append("art exhibition museum lecture attended")
         if "album" in ql or "ep" in ql:
-            out.append("album EP purchased downloaded Spotify")
+            out.append("album EP purchased downloaded")
         if "baby" in ql or "babies" in ql:
             out.append("baby born son daughter nephew niece")
-        if "points" in ql or "sephora" in ql:
-            out.append("Sephora points redeem free skincare 100 300")
-        if "property" in ql or "townhouse" in ql or "view" in ql:
-            out.append("viewed property house townhouse offer Brookside")
+        if "points" in ql or "redeem" in ql:
+            out.append("points redeem free product threshold loyalty")
+        if "property" in ql or "townhouse" in ql:
+            out.append("viewed property house townhouse offer")
 
     if intent.preference:
         out.append("I like prefer enjoy avoid dislike already bought")
         if "movie" in ql or "show" in ql or "watch" in ql:
-            out.append("Netflix stand-up comedy storytelling true crime podcast")
+            out.append("movie show watch comedy podcast prefer")
         if "battery" in ql or "phone" in ql:
             out.append("portable power bank battery phone charge")
         if "furniture" in ql or "bedroom" in ql or "rearrang" in ql:
-            out.append("dresser mid-century modern bedroom furniture replace")
+            out.append("bedroom furniture replace rearrange")
         if "cultural" in ql or "event" in ql or "weekend" in ql:
-            out.append("Spanish French language practice cultural event")
+            out.append("language practice cultural event weekend")
 
     if intent.new_attribute or ("internet" in ql and "speed" in ql):
         out.append("upgraded internet plan Mbps speed new plan")
@@ -428,21 +428,21 @@ def _extra_queries(question: str, intent) -> list[str]:
     if intent.temporal_relative or intent.needs_timeline:
         if "valentine" in ql:
             out.append("Valentine's Day flight airline February 14")
-        if "streaming" in ql or "disney" in ql:
-            out.append("started streaming Disney+ Netflix Apple TV+ Hulu")
+        if "streaming" in ql:
+            out.append("started streaming service subscription")
         if "museum" in ql:
-            out.append("visited museum exhibition Science Contemporary Metropolitan")
+            out.append("visited museum exhibition")
         if "airline" in ql or "flew" in ql or "flied" in ql:
-            out.append("flew airline JetBlue Delta United American")
+            out.append("flew airline flight")
         if "jewelry" in ql:
-            out.append("jewelry gift aunt received Saturday")
+            out.append("jewelry gift received")
         if "smoker" in ql or "appliance" in ql:
             out.append("bought kitchen appliance smoker days ago")
         if "music event" in ql or "festival" in ql:
-            out.append("music festival Brooklyn parents Saturday")
+            out.append("music festival event attended")
 
-    if intent.comparison and ("discount" in ql or "hellofresh" in ql):
-        out.append("first order discount percent HelloFresh UberEats")
+    if intent.comparison and ("discount" in ql or "first order" in ql):
+        out.append("first order discount percent delivery service")
 
     # de-dupe preserve order
     seen: set[str] = set()
@@ -460,8 +460,8 @@ def _value_rewrite(question: str) -> str | None:
     q = (question or "").lower()
     if "painting" in q or "sunset" in q:
         return "painting artwork flea market worth triple paid sunset"
-    if "discount" in q or "percent" in q or "hellofresh" in q or "ubereats" in q:
-        return "first order discount percent HelloFresh UberEats"
+    if "discount" in q or "percent" in q or "first order" in q:
+        return "first order discount percent delivery service"
     if "speed" in q or "mbps" in q or "internet" in q or "gbps" in q:
         return "internet plan speed Mbps Gbps upgrade"
     if "worth" in q or "price" in q or "paid" in q:

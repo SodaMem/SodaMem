@@ -117,7 +117,7 @@ date         = 2023-05-25
 
 ## 벤치마크
 
-LongMemEval-S **93.6% (468/500)** — **Protocol v1.0** headline. 공개 artifact는 **92.8% (464/500)**.
+LongMemEval-S **93.6% (468/500)** — **Typed Answer Schema (TAS)** headline. 공개 artifact는 **92.8% (464/500)**.
 
 | | |
 |---|---|

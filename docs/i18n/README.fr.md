@@ -124,7 +124,7 @@ a-t-il oublié X ? » a une réponse après coup.
 
 ## Benchmark
 
-**93,6 % (468/500)** sur LongMemEval-S avec **Protocol v1.0** (headline). L’artifact publié reste à **92,8 % (464/500)**.
+**93,6 % (468/500)** sur LongMemEval-S avec **Typed Answer Schema (TAS)** (headline), par rapport à l’artifact publié **92,8 % (464/500)**.
 
 | | |
 |---|---|

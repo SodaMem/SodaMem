@@ -123,7 +123,7 @@ hat der Agent X vergessen?“ ist im Nachhinein beantwortbar.
 
 ## Benchmark
 
-**93,6 % (468/500)** auf LongMemEval-S mit **Protocol v1.0** (Headline). Das veröffentlichte Artifact bleibt **92,8 % (464/500)**.
+**93,6 % (468/500)** auf LongMemEval-S mit **Typed Answer Schema (TAS)** (Headline), gegenüber dem veröffentlichten Artifact **92,8 % (464/500)**.
 
 | | |
 |---|---|

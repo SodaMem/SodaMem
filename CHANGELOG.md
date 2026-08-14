@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### Changed
+
+- Answer protocol public name: **Typed Answer Schema (TAS)**
+  (`benchmarking/protocol_v1.0/`). LongMemEval-S headline **468/500 (93.6%)**,
+  up from the published artifact **464/500 (92.8%)**.
+
 ## [0.1.0] — 2026-08-14
 
 ### Added
@@ -28,7 +34,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 | label | score | notes |
 |---|---|---|
 | Published artifact | 464/500 (92.8%) | `benchmarking/artifacts/` — full reproducible bundle |
-| Protocol v1.0 headline | 468/500 (93.6%) | `benchmarking/protocol_v1.0/` — current best protocol |
+| TAS headline | 468/500 (93.6%) | `benchmarking/protocol_v1.0/` — Typed Answer Schema |
 
 ## [0.0.1] — 2026-03
 

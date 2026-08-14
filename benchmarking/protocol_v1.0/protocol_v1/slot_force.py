@@ -23,7 +23,7 @@ def _blob_from_evidence(evidence: Any, admitted: list[dict[str, Any]] | None = N
 
 
 _REDEEM_CUES = re.compile(
-    r"\b(redeem|beauty insider|free (?:skincare )?product|threshold|loyalty)\b",
+    r"\b(redeem|free product|threshold|loyalty|redemption)\b",
     re.I,
 )
 _GOAL_CUES = re.compile(
@@ -54,7 +54,7 @@ def extract_redeem_vs_goal(blob: str) -> tuple[Optional[int], Optional[int]]:
         local = blob[max(0, m.start() - 25) : m.end() + 25]
         # Prefer redeem collocation on THIS span first
         if re.search(
-            r"points?\s+to\s+(?:redeem|get)|(?:redeem|free (?:skincare )?product)",
+            r"points?\s+to\s+(?:redeem|get)|(?:redeem|free product|threshold)",
             local,
             re.I,
         ):
@@ -75,8 +75,8 @@ def extract_redeem_vs_goal(blob: str) -> tuple[Optional[int], Optional[int]]:
             ):
                 goal.append(n)
                 continue
-        # Distant cues: only classify GOAL (safer). Never promote a number to
-        # redeem via long-range "Beauty Insider" — that misfires on balances (200).
+        # Distant cues: only classify GOAL (safer). Do not promote a number to
+        # redeem via long-range brand/program cues alone.
         gd = _cue_distance(blob, center, _GOAL_CUES)
         gd = gd if gd is not None and gd <= 40 else None
         if gd is not None:
@@ -104,7 +104,7 @@ def extract_redeem_local_only(blob: str) -> Optional[int]:
     for m in re.finditer(rf"\b{redeem}\s*points?\b", blob, re.I):
         local = blob[max(0, m.start() - 40) : m.end() + 40]
         if re.search(
-            r"(?:redeem|threshold|free (?:skincare )?product|beauty insider|"
+            r"(?:redeem|threshold|free product|loyalty|"
             r"points?\s+to\s+(?:redeem|get))",
             local,
             re.I,
@@ -157,7 +157,7 @@ def slot_hard_decision(
                 "answer_text": str(redeem),
                 "reason": f"slot_hard redeem={redeem} goal={goal}",
                 "advisory": (
-                    "protocol_v1.0 slot_hard_bind: FINAL ANSWER MUST BE "
+                    "tas slot_hard_bind: FINAL ANSWER MUST BE "
                     f"{redeem} (redeem/threshold). "
                     + (
                         f"Do NOT answer personal goal {goal}."
@@ -179,7 +179,7 @@ def slot_hard_decision(
                 "answer_text": new_s,
                 "reason": f"slot_hard new_speed={new_s} current={cur_s}",
                 "advisory": (
-                    "protocol_v1.0 slot_hard_bind: Question asks NEW plan speed. "
+                    "tas slot_hard_bind: Question asks NEW / upgraded value. "
                     f"FINAL ANSWER MUST BE {new_s}. "
                     + (f"Ignore current-status {cur_s}." if cur_s else "")
                 ),
