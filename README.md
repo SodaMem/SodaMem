@@ -27,6 +27,21 @@ Every memory can name the turn it came from, and knows when it stopped being tru
 
 ---
 
+## Agent integrations
+
+**SodaMem plugs into agent runtimes over MCP** — retain, recall, and context in the same memory store.
+
+| Runtime | Guide |
+|---|---|
+| **Hermes Agent** | [`HERMES_INTEGRATION.md`](HERMES_INTEGRATION.md) |
+| **DeepSeek Harness** | [`DEEPSEEK_HARNESS_INTEGRATION.md`](DEEPSEEK_HARNESS_INTEGRATION.md) |
+
+Also shipped: LangGraph, CrewAI, OpenAI Agents SDK, Vercel AI SDK
+([`adapters/`](adapters/)), MCP ([`mcp_server/`](mcp_server/)), and Claude Code /
+Cursor hooks via `sodamem install`.
+
+---
+
 ## Benchmark
 
 <div align="center">

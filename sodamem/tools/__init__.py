@@ -49,7 +49,9 @@ import dataclasses
 import inspect
 import logging
 import math
+import os
 import re
+import threading
 from datetime import datetime, time as datetime_time, timezone
 from typing import Any, Optional
 
@@ -527,8 +529,47 @@ class MemoryTool:
             if dropped:
                 logger.info("tool %s: dropping unsupported args %s (source pydantic models ignored unknown fields)", name, dropped)
                 normalized = {k: v for k, v in normalized.items() if k in params}
-        try:
+        # Tool-level timeout: a stuck backend call (e.g. a pathological
+        # timeline/count query against a huge store) must not hang the whole
+        # question. We cannot forcibly kill a running Python thread, so once
+        # the timeout fires we simply stop waiting and return control to the
+        # caller — the worker thread is abandoned, not stopped, and keeps
+        # running `method` to completion (or forever) in the background.
+        # That abandoned thread is spawned here as `daemon=True` rather than
+        # via `ThreadPoolExecutor` on purpose: ThreadPoolExecutor's worker
+        # threads are non-daemon and get joined by its `atexit` handler, so a
+        # single stuck call would keep the whole process alive past the
+        # timeout. A daemon thread carries no such join-on-exit obligation,
+        # so an abandoned worker can leak until the call finally returns, but
+        # it can never block interpreter shutdown.
+        tool_timeout_s = float(os.environ.get("SODAMEM_TOOL_TIMEOUT_S", "45") or 45)
+
+        def _invoke() -> dict:
             return method(**normalized)
+
+        try:
+            if tool_timeout_s > 0:
+                outcome: dict[str, Any] = {}
+
+                def _run() -> None:
+                    try:
+                        outcome["value"] = _invoke()
+                    except BaseException as exc:  # re-raised on the caller thread below
+                        outcome["error"] = exc
+
+                worker = threading.Thread(target=_run, daemon=True)
+                worker.start()
+                worker.join(tool_timeout_s)
+                if worker.is_alive():
+                    raise ToolError(
+                        "backend_timeout",
+                        f"{name} exceeded {tool_timeout_s:.0f}s — try a narrower query",
+                        status=504,
+                    )
+                if "error" in outcome:
+                    raise outcome["error"]
+                return outcome["value"]
+            return _invoke()
         except ToolError:
             raise
         except TypeError as exc:
