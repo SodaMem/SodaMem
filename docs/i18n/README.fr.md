@@ -5,9 +5,9 @@
   <img src="../assets/logo.webp" alt="SodaMem" width="260">
 </picture>
 
-**Mémoire temporelle et traçable pour agents IA.**
+**Une couche de mémoire agentique et auto-évolutive pour agents IA.**
 
-Chaque souvenir sait de quel tour de conversation il provient, et à partir de quand il a cessé d'être vrai.
+La plupart des systèmes de mémoire stockent ce que vous avez dit et s'arrêtent là — juste aujourd'hui, silencieusement faux dès que votre vie change. SodaMem évolue avec votre agent : les faits sont remplacés au lieu d'être écrasés, les profils d'entités se reconstruisent à la demande au lieu de dériver silencieusement, et chaque réponse remonte toujours jusqu'au tour de conversation exact dont elle provient. La récupération ne coûte aucun appel LLM, donc la même question obtient toujours la même réponse.
 
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](../../LICENSE)
 [![Python](https://img.shields.io/badge/python-3.11%2B-blue.svg)](../../pyproject.toml)
@@ -19,11 +19,30 @@ Chaque souvenir sait de quel tour de conversation il provient, et à partir de q
 [English](../../README.md) · [简体中文](README.zh-CN.md) · [日本語](README.ja.md) · [한국어](README.ko.md) · **Français** · [Español](README.es.md) · [Deutsch](README.de.md) · [Português](README.pt-BR.md)
 <!-- /langs -->
 
+[Intégrations agents](#intégrations-agents) · [Benchmark](#benchmark) · [Démarrage rapide](#démarrage-rapide) · [Pourquoi une couche mémoire de plus](#pourquoi-une-couche-mémoire-de-plus) · [Installation](#installation) · [Utilisable depuis n'importe où](#utilisable-depuis-nimporte-où) · [Outils de codage](#outils-de-codage) · [Auto-hébergement](#auto-hébergement)
+
 <img src="../assets/benchmark-cost-accuracy.webp" alt="Cost-accuracy trade-off on LongMemEval-S" width="760">
 
 *Précision en fonction du coût API estimé par question. Le quadrant qui compte est en haut à gauche.*
 
 </div>
+
+---
+
+## Intégrations agents
+
+| Runtime | Comment | Guide |
+|---|---|---|
+| **Hermes Agent** | MCP | [`integrations/hermes/README.md`](../../integrations/hermes/README.md) |
+| **DeepSeek Harness** | MCP | [`integrations/deepseek-harness/README.md`](../../integrations/deepseek-harness/README.md) |
+| **Générique / tout client MCP** | MCP | [`mcp_server/README.md`](../../mcp_server/README.md) |
+| **LangGraph** | adaptateur Python | [`adapters/README.md`](../../adapters/README.md) |
+| **CrewAI** | adaptateur Python | [`adapters/README.md`](../../adapters/README.md) |
+| **OpenAI Agents SDK** | adaptateur Python | [`adapters/README.md`](../../adapters/README.md) |
+| **Vercel AI SDK** | adaptateur TS | [`sdk-ts/`](../../sdk-ts/) |
+| **Claude Code, Cursor et autres clients de codage** | CLI + hooks | voir [Outils de codage](#outils-de-codage) |
+
+Index complet, avec les schémas des outils MCP et le détail des adaptateurs : [`integrations/README.md`](../../integrations/README.md).
 
 ---
 
@@ -71,6 +90,10 @@ les étapes de reproduction.
 ---
 
 ## Démarrage rapide
+
+Ceci est le chemin Python. Vous intégrez un framework d'agents ou un client MCP ? Voir [Intégrations agents](#intégrations-agents). Vous l'appelez depuis TypeScript/Node ? Voir [Utilisable depuis n'importe où](#utilisable-depuis-nimporte-où). Vous le faites tourner comme service partagé ? Voir [Auto-hébergement](#auto-hébergement).
+
+### Exemple
 
 ```bash
 pip install "sodamem[chroma,llm]"
@@ -122,7 +145,7 @@ vient** — deux problèmes de modèle de données, pas d'index vectoriel plus g
 | Deux fois la même requête — la même réponse ? | cela dépend de l'échantillonnage du modèle | fusion déterministe : même store, même requête, même résultat |
 | Pourquoi a-t-il oublié X ? | aucune réponse | `/v1/events` consigne chaque ajout, remplacement et suppression, avec son motif |
 
-Chaque ligne est développée ci-dessous, et chacune se vérifie dans ce dépôt plutôt que sur parole.
+Deux méritent qu'on s'y attarde — le reste, le tableau l'a déjà dit.
 
 ### Chaque souvenir porte sa preuve
 
@@ -138,10 +161,8 @@ source       = session_40 / turn_10          ← ce tour précis, pas « une con
 date         = 2023-05-25
 ```
 
-`FactEvent → SourceSpan → RawTurn` est une véritable chaîne de clés étrangères,
-pas un score de similarité. Quand un utilisateur demande « pourquoi pensez-vous
-cela de moi ? », il y a une réponse. Quand la conformité demande d'où vient un
-fait stocké, il y a une ligne.
+`FactEvent → SourceSpan → RawTurn` est une chaîne de clés étrangères, pas un
+score de similarité, donc « pourquoi pensez-vous cela de moi ? » a une réponse.
 
 ### Quatre axes temporels, pas un horodatage
 
@@ -155,36 +176,6 @@ fait stocké, il y a une ligne.
 Avec un seul horodatage, impossible de distinguer « j'ai **déménagé** à Chicago
 l'an dernier » de « je **vais déménager** à Chicago l'an prochain », ni de
 représenter un fait devenu faux.
-
-Les corrections sont en **ADD-only** : une nouvelle version plus une arête
-`SUPERSEDES`, jamais une réécriture sur place. `PATCH /v1/memories/{id}` clôt
-l'ancienne version avec un `valid_until` et **la laisse lisible** — c'est toute
-la différence avec `DELETE`.
-
-### Deux niveaux de récupération, et le moins cher est vraiment gratuit
-
-| niveau | appels LLM | pour |
-|---|---|---|
-| `search` / `build_context` | **zéro** | le chemin par défaut : fusion déterministe BM25 + vectoriel + entités |
-| `answer` | boucle planificateur | les questions multi-sauts qui valent les tokens |
-
-`build_context` renvoie **un bloc prêt pour le prompt, avec ses citations**, sans
-aucun appel de modèle. La plupart des systèmes rendent une liste
-d'enregistrements et vous laissent l'assemblage, le budget de tokens et la
-déduplication.
-
-Il existe un troisième niveau intermédiaire : `build_context(organizer=...)`
-fait tourner un organisateur adossé à un LLM (value-board, enumeration-sweep)
-sur l'ensemble récupéré, pour des questions du type « liste tous les X que tu
-connais de moi ». Il est volontairement réservé à Python — `/v1/context`
-n'accepte jamais d'organisateur, donc la garantie zéro-LLM de cette route ne
-peut pas être renversée par un paramètre de requête.
-
-### Une récupération auditable
-
-Même requête, même store, même résultat, à chaque fois. `/v1/events` enregistre
-chaque ajout, remplacement et suppression avec son motif : « pourquoi l'agent
-a-t-il oublié X ? » a une réponse après coup.
 
 ---
 
@@ -203,9 +194,6 @@ a-t-il oublié X ? » a une réponse après coup.
 L'installation de base tire `pydantic`, `numpy`, `rank-bm25`, `python-dateutil`.
 Rien d'autre — et une porte CI fait échouer le build si cette liste s'allonge par
 accident.
-
-
-Pas encore sur PyPI. En attendant la première version taguée, depuis les
 
 ---
 
@@ -245,33 +233,107 @@ dans l'image.
 
 ---
 
+## Outils de codage
+
+**Étape 1.** Démarrez le daemon — le seul processus qui possède les stores :
+
+```
+sodamem daemon ensure
+```
+
+**Étape 2.** Connectez-y un client :
+
+```
+sodamem install claude-code
+```
+
+Chaque client obtient la surface d'outils MCP. Quatre obtiennent aussi des
+**hooks**, pour que la mémoire soit récupérée et retenue sans que le modèle
+ait à décider d'appeler un outil — ce qu'il ne fait la plupart du temps pas
+en session de codage, occupé à lire des fichiers.
+
+Ce que les hooks peuvent faire n'est pas uniforme, parce que les systèmes de
+hooks ne le sont pas. Voici ce que chaque client supporte réellement —
+`sodamem clients` affiche la même chose :
+
+| Client | Récupération | Rétention |
+|---|---|---|
+| Claude Code | à chaque prompt | à chaque tour + fin de session |
+| GitHub Copilot CLI | à chaque prompt | à chaque tour |
+| Cursor | au démarrage de la session (brief projet) | — |
+| Codex CLI | au démarrage de la session (brief projet) | — |
+| Claude Desktop, VS Code, Windsurf, Zed, OpenCode | outils MCP uniquement | outils MCP uniquement |
+
+Le `beforeSubmitPrompt` de Cursor peut lire un prompt mais n'injecte rien (sa
+documentation liste exactement trois événements qui le peuvent, et ce n'en
+est pas un), et ni Cursor ni Codex ne passent de chemin de transcript à un
+hook — il n'y a donc rien à lire pour un hook de rétention. Ces deux-là
+reçoivent un brief projet au démarrage de la session et écrivent via l'outil
+`add_memories`. On n'installe pas un hook qui ne peut jamais rien faire.
+
+Trois choses à savoir avant de lancer la commande :
+
+**Un daemon, plusieurs éditeurs.** Les stores par utilisateur sont du SQLite
+sans WAL, donc un seul processus peut les ouvrir à la fois (ADR 0001 §2).
+`install` pointe donc chaque client vers un service déjà en cours plutôt que
+de laisser chacun lancer le sien — et si vous choisissez délibérément un
+store local (`--local-store`), un second client refuse désormais de démarrer
+au lieu de corrompre silencieusement les données du premier.
+
+**Les souvenirs sont scopés au dépôt.** `install` dérive un `project_id` à
+partir de la racine git (un `git worktree` résout vers son dépôt parent, donc
+une branche par tâche n'équivaut pas à une banque de mémoire par tâche).
+C'est un rétrécissement, pas un cloisonnement : tout ce que vous avez dit à
+SodaMem en dehors d'un projet reste visible dans chaque projet, et retirer la
+clé répond à « comment ai-je corrigé ça dans l'autre dépôt ? ».
+
+**La rétention a besoin d'identifiants d'extraction.** La récupération est
+zéro-LLM et fonctionne sans eux ; stocker des faits, non. `sodamem daemon
+ensure` le signale d'emblée plutôt que d'accepter chaque écriture et de faire
+échouer le job après coup.
+
+```
+sodamem install claude-code --dry-run      # affiche ce qui changerait
+sodamem install cursor vscode zed          # plusieurs clients à la fois
+sodamem daemon status                      # ce qui répond réellement
+```
+
+La configuration existante est fusionnée, pas remplacée — les autres
+serveurs MCP, les autres réglages et les commentaires TOML écrits à la main
+survivent — et la première écriture de chaque fichier laisse une sauvegarde
+`.sodamem-backup` à côté.
+
+---
+
 ## Auto-hébergement
 
-```bash
-cp .env.example .env      # définir SODAMEM_API_KEY
+Une seule commande :
+
+```
+cp .env.example .env      # puis définir SODAMEM_API_KEY
 docker compose up -d
 ```
 
-Authentification active par défaut. L'isolation entre locataires est
-**physique** : un fichier SQLite et une collection vectorielle par `user_id`,
-donc « supprimer cet utilisateur » revient à supprimer un répertoire.
+**Authentification active par défaut.** `docker-compose.yml` ne définit
+jamais `SODAMEM_AUTH_DISABLED` — le serveur refuse de démarrer si
+`SODAMEM_API_KEY` n'est pas défini (voir `server/settings.py`), donc pas de
+déploiement accidentellement ouvert. Définissez la clé dans `.env` avant le
+premier `docker compose up`.
 
-`/v1/admin/*` répond aux questions qui exigeraient sinon un shell dans le
-conteneur : configuration effective (les secrets sont signalés « défini / non
-défini » et jamais imprimés), clés API nommées, journal glissant des requêtes,
-état du disque et de la charge.
+**Un seul worker, exactement.** `--workers 1` est une contrainte de
+correction, pas un réglage de débit : les stores par utilisateur sont des
+bases SQLite ouvertes sans WAL, et deux processus qui écrivent dans le store
+d'un même utilisateur le corrompent. Le `CMD` livré l'indique explicitement,
+et le serveur prend un verrou exclusif sur sa racine de données au démarrage
+— un second processus pointé vers le même répertoire refuse de démarrer avec
+`data_root_locked` plutôt que de corrompre silencieusement les données. La
+montée en charge horizontale nécessite d'abord un job store externe
+(`docs/adr/0001-control-plane-db.md`).
 
-Observabilité : `/v1/metrics` (quantiles de latence), `/v1/usage` (tokens,
-séparés entre ingestion et réponse), `/metrics` (format Prometheus),
-`/v1/events` (tout changement de mémoire), et des webhooks sortants — file
-bornée, signés en HMAC, inactifs tant qu'aucune URL n'est configurée.
-
-Les profils d'entités se reconstruisent à la demande, jamais sur minuterie :
-`POST /v1/maintenance/dream` (idempotent, reprenable, un appel concurrent
-renvoie `already_running`). Quand dépenser ces tokens est une décision de
-déploiement, donc SodaMem n'embarque aucun ordonnanceur.
-
-Détails dans la version anglaise : [Self-hosting](../../README.md#self-hosting).
+La référence complète des opérations — appeler l'API, endpoints d'admin,
+métriques, maintenance, sauvegardes, montées de version — vit dans
+[`docs/self-hosting.md`](../../docs/self-hosting.md) (document disponible
+uniquement en anglais pour l'instant).
 
 ---
 
@@ -279,7 +341,6 @@ Détails dans la version anglaise : [Self-hosting](../../README.md#self-hosting)
 
 | | |
 |---|---|
-| [Outils de codage](../../README.md#coding-tools) | Claude Code, Cursor et autres clients MCP |
 | [Méthode de benchmark](../../benchmarking/README.md) | comment les chiffres de benchmark ont été produits |
 
 ---

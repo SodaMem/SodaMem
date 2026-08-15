@@ -5,9 +5,9 @@
   <img src="../assets/logo.webp" alt="SodaMem" width="260">
 </picture>
 
-**AI 에이전트를 위한, 근거를 추적할 수 있는 시간축 메모리.**
+**AI 에이전트를 위한, 스스로 진화하는 에이전틱 메모리 레이어.**
 
-모든 기억이 자신이 어느 발화에서 나왔는지 말할 수 있고, 언제부터 참이 아니게 되었는지 압니다.
+대부분의 메모리 시스템은 사용자가 한 말을 저장하고 거기서 멈춥니다 — 오늘은 맞아도 삶이 바뀌는 순간 조용히 틀린 정보가 됩니다. SodaMem은 에이전트와 함께 진화합니다: 사실은 덮어쓰이는 대신 대체되고, 엔티티 프로필은 조용히 낡아가는 대신 필요할 때 다시 구축되며, 모든 답변은 여전히 그것이 나온 정확한 발화까지 추적됩니다. 검색(recall)은 LLM 호출이 0회이므로, 같은 질문에는 언제나 같은 답이 나옵니다.
 
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](../../LICENSE)
 [![Python](https://img.shields.io/badge/python-3.11%2B-blue.svg)](../../pyproject.toml)
@@ -19,11 +19,30 @@
 [English](../../README.md) · [简体中文](README.zh-CN.md) · [日本語](README.ja.md) · **한국어** · [Français](README.fr.md) · [Español](README.es.md) · [Deutsch](README.de.md) · [Português](README.pt-BR.md)
 <!-- /langs -->
 
+[에이전트 연동](#에이전트-연동) · [벤치마크](#벤치마크) · [빠른 시작](#빠른-시작) · [왜 또 하나의 메모리 계층인가](#왜-또-하나의-메모리-계층인가) · [설치](#설치) · [어디서든 사용](#어디서든-사용) · [코딩 도구](#코딩-도구) · [셀프 호스팅](#셀프-호스팅)
+
 <img src="../assets/benchmark-cost-accuracy.webp" alt="Cost-accuracy trade-off on LongMemEval-S" width="760">
 
 *세로축은 정확도, 가로축은 질문당 추정 API 비용입니다. 의미 있는 사분면은 왼쪽 위입니다.*
 
 </div>
+
+---
+
+## 에이전트 연동
+
+| 런타임 | 방식 | 가이드 |
+|---|---|---|
+| **Hermes Agent** | MCP | [`integrations/hermes/README.md`](../../integrations/hermes/README.md) |
+| **DeepSeek Harness** | MCP | [`integrations/deepseek-harness/README.md`](../../integrations/deepseek-harness/README.md) |
+| **범용 / 모든 MCP 클라이언트** | MCP | [`mcp_server/README.md`](../../mcp_server/README.md) |
+| **LangGraph** | Python 어댑터 | [`adapters/README.md`](../../adapters/README.md) |
+| **CrewAI** | Python 어댑터 | [`adapters/README.md`](../../adapters/README.md) |
+| **OpenAI Agents SDK** | Python 어댑터 | [`adapters/README.md`](../../adapters/README.md) |
+| **Vercel AI SDK** | TS 어댑터 | [`sdk-ts/`](../../sdk-ts/) |
+| **Claude Code, Cursor 등 코딩 클라이언트** | CLI + hooks | [코딩 도구](#코딩-도구) 참고 |
+
+MCP 도구 스키마와 어댑터 세부사항을 포함한 전체 목록: [`integrations/README.md`](../../integrations/README.md).
 
 ---
 
@@ -70,16 +89,19 @@ run 디렉터리도 없습니다. 공개하는 것은
 
 ## 빠른 시작
 
+이건 Python 경로입니다. 에이전트 프레임워크나 MCP 클라이언트에 연결하려면 [에이전트 연동](#에이전트-연동)을, TypeScript/Node에서 호출하려면 [어디서든 사용](#어디서든-사용)을, 공유 서비스로 운영하려면 [셀프 호스팅](#셀프-호스팅)을 참고하세요.
+
+### 예제
+
 ```bash
 pip install "sodamem[chroma,llm]"
 ```
 
 ```python
 from sodamem import SodaMem
-from sodamem.llm import create_provider_from_env      # SODAMEM_LLM_API_KEY
+from sodamem.llm import create_provider_from_env      # SODAMEM_LLM_API_KEY 등
 from sodamem.memory.ingest.extractor import FactEventExtractorV2
 
-# 쓰기에는 사실을 추출할 모델이 필요하고, 읽기에는 전혀 필요 없습니다.
 mem = SodaMem.open("./data", extractor=FactEventExtractorV2(create_provider_from_env()))
 
 mem.ingest(
@@ -120,7 +142,7 @@ print(block.citations)   # 그 문장 한 줄 한 줄의 근거
 | 같은 질의를 두 번 하면 같은 답인가? | 모델 샘플링에 달림 | 결정적 융합: 같은 저장소, 같은 질의, 같은 결과 |
 | 왜 X를 잊었는가? | 답이 없음 | `/v1/events`가 추가·대체·삭제를 이유와 함께 모두 기록 |
 
-아래 각 절은 이 표의 한 행씩을 펼친 것이고, 모든 행은 믿어 달라고 하는 대신 이 저장소에서 직접 확인할 수 있습니다.
+이 중 두 가지는 더 살펴볼 가치가 있습니다 — 나머지는 표에 이미 나온 그대로입니다.
 
 ### 모든 기억이 자기 근거를 지닌다
 
@@ -150,32 +172,6 @@ date         = 2023-05-25
 
 타임스탬프가 하나뿐이면 "작년에 시카고로 **이사했다**"와 "내년에 시카고로
 **이사한다**"를 구분할 수 없고, 이미 참이 아니게 된 사실을 표현할 수도 없습니다.
-
-수정은 **ADD-only** 입니다. 새 버전과 `SUPERSEDES` 엣지를 더할 뿐, 제자리에서
-덮어쓰지 않습니다. `PATCH /v1/memories/{id}` 는 이전 버전에 `valid_until` 을
-붙여 닫고 **읽을 수 있는 상태로 남깁니다** — 이것이 `DELETE` 와의 결정적 차이입니다.
-
-### 두 단계 검색, 그리고 싼 쪽은 정말로 공짜
-
-| 단계 | LLM 호출 | 용도 |
-|---|---|---|
-| `search` / `build_context` | **0회** | 기본 경로: BM25 + 벡터 + 엔티티의 결정론적 융합 |
-| `answer` | 플래너 루프 | 토큰을 쓸 가치가 있는 다단계 추론 |
-
-`build_context` 는 **인용이 붙어 그대로 프롬프트에 들어가는 텍스트 블록**을
-반환하며 모델을 한 번도 호출하지 않습니다. 대부분의 시스템은 레코드 목록만 주고
-조립도, 토큰 예산도, 중복 제거도 사용자에게 맡깁니다.
-
-그 사이에 세 번째 층이 하나 더 있습니다: `build_context(organizer=...)` 는
-검색 결과 위에서 LLM 오거나이저(value-board, enumeration-sweep)를 돌려
-"나에 대해 아는 X 를 전부 나열해" 같은 질문에 답합니다. 의도적으로 Python
-전용입니다 — `/v1/context` 는 organizer 를 절대 받지 않으므로, 그 라우트의
-제로 LLM 보장은 요청 파라미터로 뒤집을 수 없습니다.
-
-### 검색 결과를 감사할 수 있다
-
-같은 질의, 같은 스토어면 결과는 매번 같습니다. `/v1/events` 가 모든 추가·대체·삭제와
-그 이유를 기록하므로, "에이전트가 왜 X를 잊었는가"는 사후에 추적 가능한 질문입니다.
 
 ---
 
@@ -232,31 +228,100 @@ curl -H "Authorization: Bearer $KEY" -H "Content-Type: application/json" \
 
 ---
 
+## 코딩 도구
+
+**1단계.** 데몬을 시작합니다 — 스토어를 소유하는 단 하나의 프로세스입니다:
+
+```
+sodamem daemon ensure
+```
+
+**2단계.** 클라이언트를 데몬에 연결합니다:
+
+```
+sodamem install claude-code
+```
+
+모든 클라이언트가 MCP 도구 표면을 얻습니다. 그중 네 개는 **hooks** 도 함께 얻어서,
+모델이 도구를 호출하기로 "결정"하지 않아도 기억이 회상되고 저장됩니다 — 코딩
+세션에서는 모델이 대개 파일을 읽느라 바빠서 그런 결정을 잘 내리지 않기 때문입니다.
+
+hooks 가 할 수 있는 일은 균일하지 않습니다. hook 시스템 자체가 균일하지 않기
+때문입니다. 아래가 각 클라이언트가 실제로 지원하는 것이고, `sodamem clients`
+가 출력하는 내용도 동일합니다:
+
+| 클라이언트 | 회상(Recall) | 저장(Retain) |
+|---|---|---|
+| Claude Code | 모든 프롬프트마다 | 모든 턴 + 세션 종료 시 |
+| GitHub Copilot CLI | 모든 프롬프트마다 | 모든 턴마다 |
+| Cursor | 세션 시작 시(프로젝트 개요) | — |
+| Codex CLI | 세션 시작 시(프로젝트 개요) | — |
+| Claude Desktop, VS Code, Windsurf, Zed, OpenCode | MCP 도구로만 | MCP 도구로만 |
+
+Cursor 의 `beforeSubmitPrompt` 는 프롬프트를 읽을 수는 있어도 무엇을 주입할
+수는 없습니다(공식 문서가 주입 가능한 이벤트로 정확히 세 개를 꼽는데, 이건 그중
+하나가 아닙니다). Cursor 와 Codex 모두 hook 에 트랜스크립트 경로를 넘기지 않으므로,
+저장용 hook 이 읽을 것 자체가 없습니다. 이 둘은 대신 세션 시작 시 프로젝트 개요를
+받고 `add_memories` 도구를 통해 씁니다. 아무것도 할 수 없는 hook 은 설치하지
+않습니다.
+
+실행 전에 알아둘 것 세 가지:
+
+**데몬은 하나, 에디터는 여럿.** 사용자별 스토어는 WAL 없는 SQLite 라서 정확히
+하나의 프로세스만 열 수 있습니다(ADR 0001 §2). 그래서 `install` 은 기본적으로
+각 클라이언트가 자기만의 프로세스를 띄우게 두지 않고 실행 중인 서비스를 가리키게
+합니다 — 의도적으로 로컬 스토어(`--local-store`)를 선택한 경우, 두 번째
+클라이언트는 첫 번째의 데이터를 조용히 망가뜨리는 대신 시작을 거부합니다.
+
+**기억은 저장소(repo) 단위로 스코프됩니다.** `install` 은 git 루트에서
+`project_id` 를 도출합니다(`git worktree` 는 부모 저장소로 귀결되므로, 작업마다
+브랜치를 나눈다고 해서 작업마다 별도의 메모리 뱅크가 생기지 않습니다). 이건
+분할이 아니라 좁히기입니다: 프로젝트 밖에서 SodaMem 에게 말한 내용은 여전히
+모든 프로젝트 안에서 나타나며, 키를 빼면 "이 문제를 다른 저장소에서는 어떻게
+고쳤더라?" 에 답할 수 없게 됩니다.
+
+**저장에는 추출용 자격증명이 필요합니다.** 회상은 LLM 호출이 0회라 자격증명
+없이도 동작하지만, 사실을 저장하는 데는 필요합니다. `sodamem daemon ensure`
+는 이걸 미리 알려줍니다 — 모든 쓰기를 일단 받아들이고 나중에 작업을 실패시키는
+대신입니다.
+
+```
+sodamem install claude-code --dry-run      # 무엇이 바뀔지 미리 출력
+sodamem install cursor vscode zed          # 여러 개를 한 번에
+sodamem daemon status                      # 실제로 응답하고 있는 것이 무엇인지
+```
+
+기존 설정은 교체가 아니라 병합됩니다 — 다른 MCP 서버, 다른 설정, 손으로 쓴
+TOML 주석까지 그대로 남습니다 — 그리고 각 파일을 처음 쓸 때 옆에
+`.sodamem-backup` 을 남깁니다.
+
+---
+
 ## 셀프 호스팅
 
-```bash
+한 줄이면 됩니다:
+
+```
 cp .env.example .env      # SODAMEM_API_KEY 설정
 docker compose up -d
 ```
 
-인증은 기본 활성화. 테넌트 격리는 **물리적**입니다 — `user_id` 마다 독립된 SQLite
-파일과 벡터 컬렉션을 갖기 때문에 "이 사용자를 삭제한다"는 디렉터리 하나를 지우는
-일입니다.
+**인증은 기본적으로 켜져 있습니다.** `docker-compose.yml` 은 `SODAMEM_AUTH_DISABLED`
+를 절대 설정하지 않습니다 — `SODAMEM_API_KEY` 가 없으면 서버가 아예 시작하지
+않으므로(`server/settings.py` 참고), 실수로 열린 채 배포되는 일이 없습니다.
+첫 `docker compose up` 전에 `.env` 에 키를 설정하세요.
 
-`/v1/admin/*` 은 원래라면 컨테이너 안에 들어가야 볼 수 있는 것들을 제공합니다:
-실효 설정(비밀값은 "설정됨/미설정"만 표시하고 값은 절대 출력하지 않음), 이름 있는
-API 키, 롤링 요청 로그, 디스크와 부하 상태.
+**워커는 정확히 하나만 실행하세요.** `--workers 1` 은 처리량 설정이 아니라
+정합성 제약입니다: 사용자별 스토어는 WAL 없이 열리는 SQLite 데이터베이스이고,
+두 프로세스가 같은 사용자의 스토어에 동시에 쓰면 손상됩니다. 기본 `CMD` 가
+이를 명시하고, 서버는 시작 시 데이터 루트에 대해 배타 락을 잡습니다 — 같은
+디렉터리를 가리키는 두 번째 프로세스는 데이터를 조용히 망가뜨리는 대신
+`data_root_locked` 로 시작을 거부합니다. 수평 확장에는 먼저 외부 잡 스토어가
+필요합니다(`docs/adr/0001-control-plane-db.md`).
 
-관측성: `/v1/metrics`(지연 분위수), `/v1/usage`(수집과 답변으로 나눈 토큰 소비),
-`/metrics`(Prometheus 형식), `/v1/events`(모든 기억 변경), 그리고 아웃바운드
-웹훅(상한 있는 큐, HMAC 서명, URL 미설정 시 완전히 비활성).
-
-엔티티 프로필 재구축은 타이머가 아니라 요청 기반입니다:
-`POST /v1/maintenance/dream`(멱등, 재개 가능, 동시 호출은 `already_running`
-반환). 그 토큰을 언제 쓸지는 배포 측 결정이므로 SodaMem 자체는 스케줄러를
-싣지 않습니다.
-
-자세한 내용은 영어판 [Self-hosting](../../README.md#self-hosting) 참조.
+API 호출, 관리자 엔드포인트, 메트릭, 유지보수, 백업, 업그레이드를 다루는 전체
+운영 레퍼런스는 [`docs/self-hosting.md`](../../docs/self-hosting.md) 에
+있습니다(현재 영어로만 제공됩니다).
 
 ---
 
@@ -264,7 +329,7 @@ API 키, 롤링 요청 로그, 디스크와 부하 상태.
 
 | | |
 |---|---|
-| [코딩 도구 연동](../../README.md#coding-tools) | Claude Code, Cursor 등 MCP 클라이언트 |
+| [코딩 도구 연동](#코딩-도구) | Claude Code, Cursor 등 MCP 클라이언트 |
 | [벤치마크 방법](../../benchmarking/README.md) | 벤치마크 숫자를 어떻게 냈는가 |
 
 ---
