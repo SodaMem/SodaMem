@@ -1,6 +1,21 @@
 # Framework adapters
 
-Three lines to give any agent framework long-term memory:
+Three lines to give any agent framework long-term memory.
+
+| Framework | Module | Extra | Verified against |
+|---|---|---|---|
+| LangGraph / LangChain | `adapters.langgraph` | `sodamem[langgraph]` | `langchain-core` 0.3 |
+| CrewAI | `adapters.crewai` | `sodamem[crewai]` | `crewai` 1.15.10 |
+| OpenAI Agents SDK | `adapters.openai_agents` | `sodamem[openai-agents]` | `openai-agents` 0.19.2 |
+| Vercel AI SDK (TypeScript) | `sdk-ts` → `createMemoryTools` | `npm i sodamem` | — |
+
+### 1. Install
+
+```bash
+pip install "sodamem[langgraph]"     # or sodamem[crewai] / sodamem[openai-agents]
+```
+
+### 2. Build the tools
 
 ```python
 from sodamem import SodaMem
@@ -9,12 +24,13 @@ from adapters.langgraph import create_memory_tools     # or .crewai / .openai_ag
 tools = create_memory_tools(SodaMem.open("./data/alice"), user_id="alice")
 ```
 
-| Framework | Module | Extra | Verified against |
-|---|---|---|---|
-| LangGraph / LangChain | `adapters.langgraph` | `sodamem[langgraph]` | `langchain-core` 0.3 |
-| CrewAI | `adapters.crewai` | `sodamem[crewai]` | `crewai` 1.15.10 |
-| OpenAI Agents SDK | `adapters.openai_agents` | `sodamem[openai-agents]` | `openai-agents` 0.19.2 |
-| Vercel AI SDK (TypeScript) | `sdk-ts` → `createMemoryTools` | `npm i sodamem` | — |
+### 3. Hand them to the framework
+
+`tools` is a plain list — pass it wherever the framework takes tools:
+`create_react_agent(tools=tools)` for LangGraph, the `tools=` kwarg on a
+CrewAI `Agent`, or the `tools=` list on an Agents SDK `Agent`. Each element
+is already a native tool object for that framework — nothing further to
+wrap or register.
 
 "Verified against" means `tests/test_adapters.py` builds the tools with that
 package installed and calls one through **the framework's own invocation

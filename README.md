@@ -5,9 +5,9 @@
   <img src="https://raw.githubusercontent.com/SodaMem/SodaMem/main/docs/assets/logo.webp" alt="SodaMem" width="260">
 </picture>
 
-**Evidence-grounded temporal memory for AI agents.**
+**A self-evolving, agentic memory layer for AI agents.**
 
-Most memory layers store what you said, full stop. SodaMem also names the turn each memory came from, and knows when it stopped being true.
+Most memory systems store what you said and stop there — correct today, silently wrong the moment your life changes. SodaMem evolves alongside your agent: facts get superseded instead of overwritten, entity profiles rebuild themselves as new evidence arrives, and every answer still traces back to the exact turn it came from. Recall costs zero LLM calls, so the same question gets the same answer every time.
 
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](https://github.com/SodaMem/SodaMem/blob/main/LICENSE)
 [![Python](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://github.com/SodaMem/SodaMem/blob/main/pyproject.toml)
@@ -94,7 +94,7 @@ the per-category breakdown, the per-conversation spread, provenance and repro st
 | Calling it from Python directly | `pip install sodamem` | the code below, no jump needed |
 | Wiring into LangGraph / CrewAI / OpenAI Agents SDK | the Python adapter | [Agent integrations](#agent-integrations) |
 | Wiring into Hermes Agent / DeepSeek Harness | MCP | [Agent integrations](#agent-integrations) |
-| Wiring into Claude Code, Cursor, or another coding client | `sodamem install` | [Coding tools](#coding-tools) |
+| Wiring into Claude Code, Codex CLI, OpenCode, Cursor, or another coding client | `sodamem install` | [Coding tools](#coding-tools) |
 | Using it from a TypeScript / Node project | `sdk-ts` | [Use it from anywhere](#use-it-from-anywhere) |
 | Standing up a service shared by multiple clients | Docker | [Self-hosting](#self-hosting) |
 
@@ -216,8 +216,21 @@ everything you know about me" — `/v1/context` never accepts one, so the
 zero-LLM guarantee over HTTP can't be flipped by a request parameter.
 
 **SDKs** — TypeScript over HTTP ([`sdk-ts/`](https://github.com/SodaMem/SodaMem/tree/main/sdk-ts/), zero runtime
-dependencies, ESM + CJS). Python talks to the library directly — `import
-sodamem` and you are already past the network.
+dependencies, ESM + CJS):
+
+```bash
+npm i sodamem
+```
+
+```typescript
+import { SodaMemClient } from "sodamem";
+
+const mem = new SodaMemClient({ baseUrl: "http://localhost:8000", apiKey: process.env.SODAMEM_API_KEY });
+const block = await mem.context({ user_id: "u1", query: "what do they prefer?", token_budget: 1000 });
+```
+
+Python talks to the library directly — `import sodamem` and you are already
+past the network.
 
 **Agent frameworks** — LangGraph, CrewAI, OpenAI Agents SDK, Vercel AI SDK.
 Scope is bound when you construct the tools and never appears in the schema
@@ -237,9 +250,16 @@ the client config it generates.
 
 ## Coding tools
 
+**Step 1.** Start the daemon — the one process that owns the stores:
+
 ```
-sodamem daemon ensure            # the one process that owns the stores
-sodamem install claude-code      # wire a client to it
+sodamem daemon ensure
+```
+
+**Step 2.** Wire a client to it:
+
+```
+sodamem install claude-code
 ```
 
 Every client gets the MCP tool surface. Four also get **hooks**, so memory is
