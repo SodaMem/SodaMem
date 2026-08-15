@@ -7,7 +7,7 @@
 
 **A self-evolving, agentic memory layer for AI agents.**
 
-Most memory systems store what you said and stop there — correct today, silently wrong the moment your life changes. SodaMem evolves alongside your agent: facts get superseded instead of overwritten, entity profiles rebuild themselves as new evidence arrives, and every answer still traces back to the exact turn it came from. Recall costs zero LLM calls, so the same question gets the same answer every time.
+Most memory systems store what you said and stop there — correct today, silently wrong the moment your life changes. SodaMem evolves alongside your agent: facts get superseded instead of overwritten, entity profiles rebuild on demand instead of drifting silently stale, and every answer still traces back to the exact turn it came from. Recall costs zero LLM calls, so the same question gets the same answer every time.
 
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](https://github.com/SodaMem/SodaMem/blob/main/LICENSE)
 [![Python](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://github.com/SodaMem/SodaMem/blob/main/pyproject.toml)
@@ -225,7 +225,7 @@ npm i sodamem
 ```typescript
 import { SodaMemClient } from "sodamem";
 
-const mem = new SodaMemClient({ baseUrl: "http://localhost:8000", apiKey: process.env.SODAMEM_API_KEY });
+const mem = new SodaMemClient({ baseUrl: "http://localhost:8000", apiKey: process.env.SODAMEM_API_KEY! });
 const block = await mem.context({ user_id: "u1", query: "what do they prefer?", token_budget: 1000 });
 ```
 
