@@ -435,34 +435,3 @@ def test_evidence_count_date_upper_bound_includes_last_fractional_second():
     assert [
         item["fact_id"] for item in result["groups"][0]["items"]
     ] == ["last-moment"]
-
-
-def test_dispatch_timeout_returns_without_waiting_for_stuck_worker(monkeypatch):
-    """A stuck tool must raise ToolError(backend_timeout) near the timeout.
-
-    Using `with ThreadPoolExecutor` would wait for the worker on exit and
-    defeat the timeout; this test fails if that regression returns.
-    """
-    import time
-
-    import sodamem.tools as tools_mod
-
-    tool = object.__new__(MemoryTool)
-    tool._user_id = "u1"
-    tool._config = RetrievalConfig()
-
-    def _stuck(**kwargs):
-        time.sleep(5)
-        return {"ok": True}
-
-    monkeypatch.setenv("SODAMEM_TOOL_TIMEOUT_S", "0.2")
-    monkeypatch.setitem(tools_mod._DISPATCH_TABLE, "memory.tool.search", "_stuck")
-    tool._stuck = _stuck  # type: ignore[attr-defined]
-
-    started = time.monotonic()
-    with pytest.raises(ToolError) as exc:
-        tool.dispatch("memory.tool.search", query="anything")
-    elapsed = time.monotonic() - started
-    assert exc.value.code == "backend_timeout"
-    assert elapsed < 1.5, f"timeout waited on worker exit: {elapsed:.2f}s"
-

@@ -1,99 +1,93 @@
-# Publishing SodaMem
+# Publishing to GitHub (SodaMem/SodaMem)
 
-This guide covers releases from [github.com/SodaMem/SodaMem](https://github.com/SodaMem/SodaMem)
-and explains how **Protocol v1.0** relates to the package version.
+This guide covers what to push to [github.com/SodaMem/SodaMem](https://github.com/SodaMem/SodaMem)
+and how **Protocol v1.0** fits in.
 
-## Repository layers
+## What the repo is
 
-| Layer | Path | Purpose |
+| layer | path in repo | what it is |
 |---|---|---|
-| Product | `sodamem/`, `server/`, `mcp_server/`, `adapters/` | Memory engine and public APIs |
-| Plan B+ | `sodamem_opt/` | Answer-side deterministic count and time-window patches |
-| Benchmark harness | `benchmarking/` | LongMemEval runner, tests, and artifacts |
-| Protocol v1.0 | `benchmarking/protocol_v1.0/` | LongMemEval answer protocol (468/500 headline) |
+| **Product** | `sodamem/`, `server/`, `mcp_server/`, `adapters/`, … | Memory engine, APIs, MCP |
+| **Plan B+ patches** | `sodamem_opt/` | Answer-side optimizations (deterministic count, time window, …) |
+| **Benchmark harness** | `benchmarking/` | `run_s500.py`, tests, artifacts |
+| **Protocol v1.0** | `benchmarking/protocol_v1.0/` | LongMemEval answer protocol (468/500 headline) |
 
-Protocol v1.0 is a benchmark protocol, not the Python package version. The
-Python and TypeScript package version is **0.1.0**, declared in
-`pyproject.toml`, `sdk-ts/package.json`, and `uv.lock`.
+**Protocol v1.0 is not the Python package version.** Package version lives in
+`pyproject.toml` (`0.0.1` today). Protocol v1.0 is a **benchmark protocol
+tree** copied from internal `Version/v1.0/`.
 
-## Release contents
+## What to upload (include)
 
-Ship the complete repository, subject to `.gitignore` and the exclusions below:
+Push the **entire product tree** from this directory (`SodaMem-dev-main`), minus
+ignored paths:
 
-```text
+```
 sodamem/ sodamem_opt/ sodamem_cli/
 server/ mcp_server/ adapters/ console/ sdk-ts/
-benchmarking/
+benchmarking/          # includes protocol_v1.0/
 tests/ docs/ scripts/ specs/
-pyproject.toml uv.lock README.md LICENSE
+pyproject.toml uv.lock README.md LICENSE …
 ```
 
-The Protocol v1.0 bundle contains:
+**Protocol v1.0 bundle** (already under `benchmarking/protocol_v1.0/`):
 
-- `protocol_v1/*.py` — runtime patches and advisories
-- `METHOD.md`, `RESULTS_S500.md`
-- `ARCHIVE_S500/summary.json` and `ARCHIVE_S500/answers_all.jsonl`
+- `protocol_v1/*.py` — runtime patches
+- `skill/set_enumeration/` — MR enumeration skill
+- `METHOD.md`, `RESULTS_S500.md`, `ARCHIVE_S500/summary.json`
 - `run_protocol_s500.py` — runner
-- `README.md` — setup, evaluation, and provenance
+- `README.md` — how to reproduce
 
-## Never commit
+## What NOT to upload
 
-| Path / data | Reason |
+| never commit | why |
 |---|---|
-| Frozen `memory.db` stores or raw third-party datasets | Licensing and size |
-| API keys, `.env`, credentials | Security |
-| `.venv/`, `__pycache__/`, local result directories | Generated environment |
-| Raw provider responses and traces | Privacy and unnecessary size |
+| `data/`, frozen `memory.db` stores | third-party corpus / huge |
+| `benchmarking/results/`, `*.jsonl`, run output | generated, gitignored |
+| `api/.env`, secrets, API keys | security |
+| `.venv/`, `__pycache__/`, local `results/` | environment |
+| `Version/` whole tree from Agent Memory Project | internal experiment archive; only **protocol_v1.0** subset is vendored into `benchmarking/` |
 
-The reviewed `ARCHIVE_S500/answers_all.jsonl` is an explicit exception to the
-general run-output rule: it contains the 500 final benchmark answer records
-needed for re-grading, and no API keys or frozen-store databases.
+Optional: publish full `ARCHIVE_S500/answers_all.jsonl` as a release asset
+(not in git) if you want downloadable 468-run answers like `benchmarking/artifacts/`.
 
-## Pre-release checks
-
-Do not tag until all of these pass on the exact release commit:
+## How to push an update
 
 ```bash
-uv lock --check
-uv venv
-uv pip install -e ".[dev,chroma,server,mcp,llm,anthropic]"
-uv run pytest -q
-uv run lint-imports
-uv run ruff check sodamem server mcp_server tests benchmarking/tests
-uv build
-uv pip install twine
-uv run twine check dist/*
+cd project/SodaMem-dev-main   # or your clone of SodaMem/SodaMem
 
-cd sdk-ts
-npm ci
-npm test --if-present
-npm run build
+git remote add origin https://github.com/SodaMem/SodaMem.git   # once
+git checkout -b release/protocol-v1.0   # or commit on main
+git add README.md CHANGELOG.md benchmarking/protocol_v1.0/ docs/
+git status   # verify no .env, no answers.jsonl, no memory.db
+git commit -m "docs: Protocol v1.0 headline 468/500; update README"
+git push -u origin HEAD
 ```
 
-Verify that all version declarations equal `0.1.0`:
+Tag when ready:
 
 ```bash
-python -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])"
-node -p "require('./sdk-ts/package.json').version"
-```
-
-## Tag-driven release
-
-The release workflow runs only for tags and verifies that the tag, Python
-version, and npm version match:
-
-```bash
-git tag -a v0.1.0 -m "SodaMem 0.1.0; Protocol v1.0 headline 468/500"
+git tag -a v0.1.0 -m "Protocol v1.0 benchmark bundle; headline 468/500"
 git push origin v0.1.0
 ```
 
-Do not create the tag until CI and the package smoke checks above are green.
+## After cloning (for evaluators)
 
-## Evaluator setup
+1. `pip install -e ".[chroma,llm,answer,server,mcp]"`
+2. Point env vars (`SODAMEM_BENCH_DATA`, `SODAMEM_BENCH_STORES`) — see
+   `benchmarking/README.md`
+3. Run Protocol v1.0: `benchmarking/protocol_v1.0/README.md`
 
-1. Install: `pip install -e ".[chroma,llm,answer,server,mcp]"`
-2. Supply licensed benchmark data and a frozen store through
-   `SODAMEM_BENCH_DATA` and `SODAMEM_BENCH_STORES`.
-3. Follow `benchmarking/protocol_v1.0/README.md`.
-4. Re-grade the published answers in
-   `benchmarking/protocol_v1.0/ARCHIVE_S500/answers_all.jsonl`.
+## Syncing from Agent Memory Project
+
+When internal `Version/v1.0/` changes:
+
+```powershell
+$src = "...\Agent Memory Project\Version\v1.5"
+$dst = "...\SodaMem-dev-main\benchmarking\protocol_v1.0"
+Copy-Item -Recurse -Force "$src\protocol_v1" "$dst\protocol_v1"
+Copy-Item -Recurse -Force "$src\skill" "$dst\skill"
+Copy-Item -Force "$src\METHOD.md","$src\RESULTS_S500.md" "$dst\"
+Copy-Item -Force "$src\run_union_x.py" "$dst\run_protocol_s500.py"
+```
+
+Do **not** copy `results_*`, `_heartbeats`, or `answers.jsonl`.

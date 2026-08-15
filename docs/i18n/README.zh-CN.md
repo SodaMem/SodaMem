@@ -131,16 +131,13 @@ LongMemEval-S **93.6%（468/500）**——**Protocol v1.0** 当前 headline。
 
 ---
 
-## Agent 对接
+## Agent 对接（预留）
 
-SodaMem 可通过 MCP 接入主流 Agent 运行时：
-
-| Runtime | 指南 |
+| Agent / Harness | 状态 |
 |---|---|
-| **Hermes Agent** | [`HERMES_INTEGRATION.md`](../../HERMES_INTEGRATION.md) |
-| **DeepSeek Harness** | [`DEEPSEEK_HARNESS_INTEGRATION.md`](../../DEEPSEEK_HARNESS_INTEGRATION.md) |
-| PI Agent | 即将支持 |
-
+| **PI Agent** | 即将支持 |
+| **Hermes Agent** | 即将支持 |
+| **DeepSeek Harness** | 即将支持 |
 
 已支持：LangGraph、CrewAI、OpenAI Agents、Vercel AI SDK、MCP、`sodamem install`。
 详见 [`docs/integrations/`](../../docs/integrations/)。

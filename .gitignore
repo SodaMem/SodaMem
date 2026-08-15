@@ -16,5 +16,3 @@ context.md
 memory.db
 *.jsonl
 *.jsonl.gz
-# Explicit Protocol v1.0 headline answers (re-gradable, no secrets/stores).
-!benchmarking/protocol_v1.0/ARCHIVE_S500/answers_all.jsonl

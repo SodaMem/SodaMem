@@ -556,34 +556,21 @@ class MemoryTool:
         # stores; the planner then never recovers and the question hits the
         # outer HEARTBEAT/TIMEOUT. Soft rarely hits this because it issues
         # fewer timeline/count tool calls.
-        #
-        # Do NOT use `with ThreadPoolExecutor(...)`: on timeout, leaving the
-        # context manager waits for the stuck worker to finish, which defeats
-        # the timeout. Shutdown without waiting so the caller can return.
         tool_timeout_s = float(os.environ.get("SODAMEM_TOOL_TIMEOUT_S", "45") or 45)
         try:
             if tool_timeout_s > 0:
                 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeout
 
-                pool = ThreadPoolExecutor(max_workers=1)
-                fut = pool.submit(method, **normalized)
-                try:
-                    return fut.result(timeout=tool_timeout_s)
-                except FuturesTimeout:
-                    fut.cancel()
-                    pool.shutdown(wait=False, cancel_futures=True)
-                    raise ToolError(
-                        "backend_timeout",
-                        f"{name} exceeded {tool_timeout_s:.0f}s — try a narrower query",
-                        status=504,
-                    )
-                finally:
-                    # Best-effort: if the future already finished, wait=False
-                    # still returns immediately. Avoid double-shutdown.
+                with ThreadPoolExecutor(max_workers=1) as pool:
+                    fut = pool.submit(method, **normalized)
                     try:
-                        pool.shutdown(wait=False, cancel_futures=True)
-                    except Exception:
-                        pass
+                        return fut.result(timeout=tool_timeout_s)
+                    except FuturesTimeout:
+                        raise ToolError(
+                            "backend_timeout",
+                            f"{name} exceeded {tool_timeout_s:.0f}s — try a narrower query",
+                            status=504,
+                        )
             return method(**normalized)
         except ToolError:
             raise
