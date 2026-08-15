@@ -1,22 +1,73 @@
 <div align="center">
 
-# SodaMem
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/SodaMem/SodaMem/main/docs/assets/logo-dark.webp">
+  <img src="https://raw.githubusercontent.com/SodaMem/SodaMem/main/docs/assets/logo.webp" alt="SodaMem" width="260">
+</picture>
 
 **Evidence-grounded temporal memory for AI agents.**
 
 Every memory can name the turn it came from, and knows when it stopped being true.
 
-[![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
-[![Python](https://img.shields.io/badge/python-3.11%2B-blue.svg)](pyproject.toml)
-[![LongMemEval](https://img.shields.io/badge/LongMemEval--S-93.6%25-brightgreen.svg)](benchmarking/protocol_v1.0/)
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](https://github.com/SodaMem/SodaMem/blob/main/LICENSE)
+[![Python](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://github.com/SodaMem/SodaMem/blob/main/pyproject.toml)
+[![LongMemEval](https://img.shields.io/badge/LongMemEval-92.8%25-brightgreen.svg)](https://github.com/SodaMem/SodaMem/tree/main/benchmarking/artifacts/)
+[![LoCoMo](https://img.shields.io/badge/LoCoMo-86.88%25-brightgreen.svg)](https://github.com/SodaMem/SodaMem/blob/main/benchmarking/README.md#locomo-cat-1-4)
+[![Discussions](https://img.shields.io/github/discussions/SodaMem/SodaMem?logo=github&label=discussions)](https://github.com/SodaMem/SodaMem/discussions)
 
 <!-- langs -->
-**English** · [简体中文](docs/i18n/README.zh-CN.md) · [日本語](docs/i18n/README.ja.md) · [한국어](docs/i18n/README.ko.md) · [Français](docs/i18n/README.fr.md) · [Español](docs/i18n/README.es.md) · [Deutsch](docs/i18n/README.de.md) · [Português](docs/i18n/README.pt-BR.md)
+**English** · [简体中文](https://github.com/SodaMem/SodaMem/blob/main/docs/i18n/README.zh-CN.md) · [日本語](https://github.com/SodaMem/SodaMem/blob/main/docs/i18n/README.ja.md) · [한국어](https://github.com/SodaMem/SodaMem/blob/main/docs/i18n/README.ko.md) · [Français](https://github.com/SodaMem/SodaMem/blob/main/docs/i18n/README.fr.md) · [Español](https://github.com/SodaMem/SodaMem/blob/main/docs/i18n/README.es.md) · [Deutsch](https://github.com/SodaMem/SodaMem/blob/main/docs/i18n/README.de.md) · [Português](https://github.com/SodaMem/SodaMem/blob/main/docs/i18n/README.pt-BR.md)
 <!-- /langs -->
+
+<img src="https://raw.githubusercontent.com/SodaMem/SodaMem/main/docs/assets/benchmark-cost-accuracy.webp" alt="Cost-accuracy trade-off on LongMemEval-S: SodaMem sits in the high-accuracy, low-cost quadrant" width="760">
+
+*Accuracy against estimated API cost per question. The quadrant that matters is up and to the left.*
 
 </div>
 
 ---
+
+## Benchmark
+
+<div align="center">
+  <img src="https://raw.githubusercontent.com/SodaMem/SodaMem/main/docs/assets/benchmark-longmemeval.webp" alt="LongMemEval: SodaMem 92.8%, Hindsight 91.4%, Mem0 OSS 91.0%" width="720">
+</div>
+
+**92.8% (464/500)** on LongMemEval.
+
+| | |
+|---|---|
+| reader / planner / judge | `deepseek-v4-flash` |
+| judge prompts | the LongMemEval benchmark's own `evaluate_qa.py` templates, byte-identical |
+| store | `longmemeval_s_500_Hobs_entitysubj`, 500 users / 235,840 facts |
+
+**Every answer and every retrieved memory is published** in
+[`benchmarking/artifacts/`](https://github.com/SodaMem/SodaMem/tree/main/benchmarking/artifacts/) — 500 answers verbatim,
+8,427 evidence rows. Re-grade them with any judge, or hand the retrieved
+context to your own reader and see what the number does. Neither needs access
+to anything of ours.
+
+<div align="center">
+  <img src="https://raw.githubusercontent.com/SodaMem/SodaMem/main/docs/assets/benchmark-locomo.webp" alt="LoCoMo: SodaMem 86.88%, MemMachine 91.69%, Hindsight 89.61%, MIRIX 85.38%, Memobase 75.78%, Mem0 OSS 66.88%" width="720">
+</div>
+
+**86.88% (1338/1540)** on LoCoMo. End-to-end QA accuracy, LLM-as-judge.
+
+| | |
+|---|---|
+| reader / planner / judge | `deepseek-v4-flash` |
+| judge prompts | the LongMemEval benchmark's own templates, byte-copied |
+| store | `locomo10_Hobs`, 10 user stores / 2,905 fact events |
+| code | a pre-release build — this repository's published history begins at v0.1.0 |
+
+**No per-question artifacts are published for LoCoMo** — no answers, no retrieved
+context, no run directory. What is published is
+[the LoCoMo section of `benchmarking/README.md`](https://github.com/SodaMem/SodaMem/blob/main/benchmarking/README.md#locomo-cat-1-4):
+the per-category breakdown, the per-conversation spread, provenance and repro steps.
+
+---
+
+## Quick start
 
 ```bash
 pip install "sodamem[chroma,llm]"
@@ -57,6 +108,18 @@ that cache and it runs air-gapped.
 Most memory systems store *what* you said. The questions that break them are
 *when it stopped being true* and *where it came from* — and those need a data
 model, not a bigger vector index.
+
+| the question | the usual answer | SodaMem |
+|---|---|---|
+| Where did this memory come from? | a similarity score and some metadata | `FactEvent → SourceSpan → RawTurn`, a foreign-key chain down to the exact turn |
+| The user changed their mind — now what? | overwrite; the old value is gone | ADD-only plus a `SUPERSEDES` edge; the old version closes with a `valid_until` and stays readable |
+| "I moved to Chicago last year" vs "I move next year" | one timestamp | four time axes: occurred / valid / said / stored |
+| What does one retrieval cost? | an LLM call per retrieval | `build_context` makes **zero**, and returns a prompt-ready block with citations |
+| Same query twice — same answer? | depends on the model's sampling | deterministic fusion: same store, same query, same result |
+| Why did it forget X? | no answer | `/v1/events` records every add, supersede and delete, with its reason |
+
+Each row is expanded below, and each one is something you can check in this
+repository rather than take on faith.
 
 ### Every memory carries its receipt
 
@@ -118,46 +181,6 @@ is answerable after the fact instead of a shrug.
 
 ---
 
-## Agent integrations
-
-**SodaMem plugs into agent runtimes over MCP** — retain, recall, and context in the same memory store.
-
-| Runtime | Guide |
-|---|---|
-| **Hermes Agent** | [`HERMES_INTEGRATION.md`](HERMES_INTEGRATION.md) |
-| **DeepSeek Harness** | [`DEEPSEEK_HARNESS_INTEGRATION.md`](DEEPSEEK_HARNESS_INTEGRATION.md) |
-
-Also shipped: LangGraph, CrewAI, OpenAI Agents SDK, Vercel AI SDK
-([`adapters/`](adapters/)), MCP ([`mcp_server/`](mcp_server/)), and Claude Code /
-Cursor hooks via `sodamem install`.
-
----
-
-## Benchmark
-
-**93.6% (468/500)** on LongMemEval-S with **Protocol v1.0** (current headline).
-The published reproducible artifact run remains **92.8% (464/500)** — every
-answer and retrieved memory is in [`benchmarking/artifacts/`](benchmarking/artifacts/).
-
-| | Protocol v1.0 (headline) | Published artifact |
-|---|---|---|
-| score | **468/500** | 464/500 |
-| reader / planner / judge | `deepseek-v4-flash` | same |
-| judge prompts | LongMemEval `evaluate_qa.py`, byte-identical | same |
-| store | `longmemeval_s_500_Hobs_entitysubj`, 500 users / 235,840 facts | same |
-| protocol | [`benchmarking/protocol_v1.0/`](benchmarking/protocol_v1.0/) | Plan B+ baseline in artifacts |
-
-**Two layers, one stack:** `sodamem` is the memory engine; **Protocol v1.0**
-is the answer-side discipline (question schema, keep-count cardinality, TR/MR
-advisories) layered for LongMemEval. It is not a separate "SodaMem product 1.0
-release" — the Python package version is in `pyproject.toml`.
-
-Reproduce the headline run: see [`benchmarking/protocol_v1.0/README.md`](benchmarking/protocol_v1.0/README.md).
-Re-grade published answers: [`benchmarking/artifacts/`](benchmarking/artifacts/) —
-500 answers verbatim, 8,427 evidence rows. Neither needs our services.
-
----
-
 ## Install
 
 | extra | what it adds |
@@ -172,10 +195,6 @@ Re-grade published answers: [`benchmarking/artifacts/`](benchmarking/artifacts/)
 
 Base install pulls `pydantic`, `numpy`, `rank-bm25`, `python-dateutil` — and
 a CI gate fails the build if that list grows by accident.
-
-```bash
-pip install "git+https://github.com/SodaMem/SodaMem#egg=sodamem[chroma,llm]"
-```
 
 ---
 
@@ -193,7 +212,7 @@ curl -H "Authorization: Bearer $KEY" -H "Content-Type: application/json" \
 `/v1/context` and `/v1/search` both take a JSON body; `/v1/context` also
 answers a plain GET with query params, since it is a pure read.
 
-**SDKs** — TypeScript over HTTP ([`sdk-ts/`](sdk-ts/), zero runtime
+**SDKs** — TypeScript over HTTP ([`sdk-ts/`](https://github.com/SodaMem/SodaMem/tree/main/sdk-ts/), zero runtime
 dependencies, ESM + CJS). Python talks to the library directly — `import
 sodamem` and you are already past the network.
 
@@ -447,22 +466,21 @@ docker run -d \
 
 ## Contributing
 
-Bugs, features and PRs are welcome. Read [`CONTRIBUTING.md`](CONTRIBUTING.md).
-Publishing notes: [`docs/PUBLISHING.md`](docs/PUBLISHING.md). Changelog:
-[`CHANGELOG.md`](CHANGELOG.md).
+Bugs, features and PRs are welcome. Read `CONTRIBUTING.md` first — it
+describes four rules CI enforces that the code itself does not announce.
 
-| doc | topic |
+| | |
 |---|---|
-| [`CONTRIBUTING.md`](CONTRIBUTING.md) | setup and CI gates |
-| [`SECURITY.md`](SECURITY.md) | vulnerability reporting |
-| [`CHANGELOG.md`](CHANGELOG.md) | release notes |
-| [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md) | Contributor Covenant 2.1 |
+| [CONTRIBUTING.md](https://github.com/SodaMem/SodaMem/blob/main/CONTRIBUTING.md) | setup, and the four things CI checks that you cannot guess from reading the source |
+| [SECURITY.md](https://github.com/SodaMem/SodaMem/blob/main/SECURITY.md) | how to report a vulnerability privately, and where the trust boundary actually is |
+| [CHANGELOG.md](https://github.com/SodaMem/SodaMem/blob/main/CHANGELOG.md) | what changed per release, and what pre-1.0 compatibility does and does not promise |
+| [CODE_OF_CONDUCT.md](https://github.com/SodaMem/SodaMem/blob/main/CODE_OF_CONDUCT.md) | Contributor Covenant 2.1 |
 
 ## Acknowledgements
 
-Early contributions from @sunjiajunsunjiajun and @Lum1104 helped shape the
-work this project grew out of. Thank you.
+Early contributions from [@sunjiajunsunjiajun](https://github.com/sunjiajunsunjiajun) and [@Lum1104](https://github.com/Lum1104) helped shape the work this project grew out of.
+Thank you.
 
 ## License
 
-Apache-2.0. Copyright 2026 FENGRONG WAN.
+[Apache-2.0](https://github.com/SodaMem/SodaMem/blob/main/LICENSE). Copyright 2026 FENGRONG WAN.

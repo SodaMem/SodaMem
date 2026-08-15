@@ -1,6 +1,9 @@
 <div align="center">
 
-# SodaMem
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../assets/logo-dark.webp">
+  <img src="../assets/logo.webp" alt="SodaMem" width="260">
+</picture>
 
 **给 AI Agent 的证据可溯、带时间的记忆层。**
 
@@ -8,15 +11,63 @@
 
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](../../LICENSE)
 [![Python](https://img.shields.io/badge/python-3.11%2B-blue.svg)](../../pyproject.toml)
-[![LongMemEval](https://img.shields.io/badge/LongMemEval--S-93.6%25-brightgreen.svg)](../../benchmarking/protocol_v1.0/)
+[![LongMemEval](https://img.shields.io/badge/LongMemEval-92.8%25-brightgreen.svg)](../../benchmarking/artifacts/)
+[![LoCoMo](https://img.shields.io/badge/LoCoMo-86.88%25-brightgreen.svg)](../../benchmarking/README.md#locomo-cat-1-4)
+[![Discussions](https://img.shields.io/github/discussions/SodaMem/SodaMem?logo=github&label=discussions)](https://github.com/SodaMem/SodaMem/discussions)
 
 <!-- langs -->
 [English](../../README.md) · **简体中文** · [日本語](README.ja.md) · [한국어](README.ko.md) · [Français](README.fr.md) · [Español](README.es.md) · [Deutsch](README.de.md) · [Português](README.pt-BR.md)
 <!-- /langs -->
 
+<img src="../assets/benchmark-cost-accuracy.webp" alt="Cost-accuracy trade-off on LongMemEval-S" width="760">
+
+*纵轴是准确率，横轴是每个问题的预估 API 成本。有意义的象限在左上角。*
+
 </div>
 
 ---
+
+## 跑分
+
+<div align="center">
+  <img src="../assets/benchmark-longmemeval.webp" alt="LongMemEval: SodaMem 92.8%, Hindsight 91.4%, Mem0 OSS 91.0%" width="720">
+</div>
+
+LongMemEval **92.8%（464/500）**。
+
+| | |
+|---|---|
+| reader / planner / judge | `deepseek-v4-flash` |
+| 判分提示词 | LongMemEval 官方 `evaluate_qa.py` 模板，逐字节相同 |
+| 跑分店 | `longmemeval_s_500_Hobs_entitysubj`,500 用户 / 235,840 条事实 |
+
+**每一条答案和每一条检索到的记忆都已公开**，见
+[`benchmarking/artifacts/`](../../benchmarking/artifacts/)——500 条逐字答案，
+8427 条证据。你可以用任意 judge 重新判分，也可以把我们检索到的上下文喂给
+你自己的 reader 看分数怎么变。两件事都不需要接触我们的任何服务。
+
+<div align="center">
+  <img src="../assets/benchmark-locomo.webp" alt="LoCoMo: SodaMem 86.88%, MemMachine 91.69%, Hindsight 89.61%, MIRIX 85.38%, Memobase 75.78%, Mem0 OSS 66.88%" width="720">
+</div>
+
+LoCoMo **86.88%（1338/1540）**。端到端问答准确率（end-to-end QA accuracy），
+由 LLM-as-judge 判分。
+
+| | |
+|---|---|
+| reader / planner / judge | `deepseek-v4-flash` |
+| 判分提示词 | LongMemEval 官方模板，逐字节复制 |
+| 跑分店 | `locomo10_Hobs`，10 个用户库 / 2,905 条 fact event |
+| 代码 | 一个预发布构建 —— 本仓库公开的历史从 v0.1.0 开始 |
+
+**LoCoMo 没有发布任何逐题产物** —— 没有 answers，没有检索上下文，没有 run 目录。
+公开的是
+[`benchmarking/README.md` 的 LoCoMo 一节](../../benchmarking/README.md#locomo-cat-1-4)：
+分类别拆分、逐会话分布、provenance 与复现步骤。
+
+---
+
+## 快速开始
 
 ```bash
 pip install "sodamem[chroma,llm]"
@@ -54,6 +105,18 @@ print(block.citations)   # 这段文字里每一句的证据出处
 多数记忆系统记录的是**你说过什么**。真正让它们失效的问题是**这话从哪一刻起
 不再成立**和**它到底出自哪里**——而这两件事要靠数据模型解决，不是靠更大的
 向量索引。
+
+
+| 这个问题 | 常见做法 | SodaMem |
+|---|---|---|
+| 这条记忆是哪来的？ | 一个相似度分数，外加几个元数据字段 | `FactEvent → SourceSpan → RawTurn` 外键链，一路指到具体那一轮对话 |
+| 用户改口了怎么办？ | 覆盖写，旧值就此消失 | 只增不改，再加一条 `SUPERSEDES` 边；旧版本以 `valid_until` 收尾，依然可读 |
+| 「我去年搬去了芝加哥」和「我明年要搬」 | 同一个时间戳 | 四条时间轴：发生 / 有效 / 说出 / 存入 |
+| 取一次上下文要花多少钱？ | 每检索一次就过一遍 LLM | `build_context` **零** 模型调用，直接返回带引用的成品 prompt |
+| 同一个查询问两次，结果一样吗？ | 取决于模型这次怎么采样 | 确定性融合：同一个库、同一个查询、同一个结果 |
+| 它为什么忘了 X？ | 没有答案 | `/v1/events` 记录每一次新增、覆盖与删除，连原因一起 |
+
+下面每个小节展开其中一行——而且每一行都能在这个仓库里查证，不需要你选择相信。
 
 ### 每条记忆都带着凭证
 
@@ -109,41 +172,6 @@ organizer，所以那条路由的零 LLM 保证不可能被某个请求参数翻
 
 ---
 
-## 跑分
-
-LongMemEval-S **93.6%（468/500）**——**Protocol v1.0** 当前 headline。
-已公开的 artifact 复现跑分仍为 **92.8%（464/500）**，见
-[`benchmarking/artifacts/`](../../benchmarking/artifacts/)。
-
-| | Protocol v1.0 | 公开 artifact |
-|---|---|---|
-| 分数 | **468/500** | 464/500 |
-| reader / planner / judge | `deepseek-v4-flash` | 相同 |
-| 判分 | LongMemEval 官方 `evaluate_qa.py` | 相同 |
-| store | `longmemeval_s_500_Hobs_entitysubj` | 相同 |
-| 协议树 | [`benchmarking/protocol_v1.0/`](../../benchmarking/protocol_v1.0/) | Plan B+ 基线 |
-
-**两层叠在一起：** `sodamem` 是记忆引擎；**Protocol v1.0** 是 LongMemEval
-答题侧协议（题型 schema、keep-count 计数等），**不是** Python 包的「1.5 产品版」。
-
-复现 headline：[`protocol_v1.0/README.md`](../../benchmarking/protocol_v1.0/README.md)。
-重判 artifact：500 条答案 + 8427 条证据，无需接触我们的服务。
-
----
-
-## Agent 对接（预留）
-
-| Agent / Harness | 状态 |
-|---|---|
-| **PI Agent** | 即将支持 |
-| **Hermes Agent** | 即将支持 |
-| **DeepSeek Harness** | 即将支持 |
-
-已支持：LangGraph、CrewAI、OpenAI Agents、Vercel AI SDK、MCP、`sodamem install`。
-详见 [`docs/integrations/`](../../docs/integrations/)。
-
----
-
 ## 安装
 
 | extra | 带来什么 |
@@ -160,9 +188,6 @@ LongMemEval-S **93.6%（468/500）**——**Protocol v1.0** 当前 headline。
 有一道 CI 门守着——这个列表要是被谁不小心加长了，构建直接失败。
 
 
-```bash
-pip install "git+https://github.com/SodaMem/SodaMem#egg=sodamem[chroma,llm]"
-```
 
 ---
 
@@ -227,10 +252,13 @@ answer 分开）、`/metrics`（Prometheus）、`/v1/events`（每一次记忆�
 | | |
 |---|---|
 | [编码工具接入](../../README.md#coding-tools) | Claude Code、Cursor 等 MCP 客户端 |
-| [跑分方法](../../benchmarking/README.md) | LongMemEval 分数与 Protocol v1.0 |
-| [发布指南](../../docs/PUBLISHING.md) | 推送到 GitHub 应包含哪些文件 |
+| [跑分方法](../../benchmarking/README.md) | 那些跑分数字是怎么跑出来的 |
 
 ---
+
+## 致谢
+
+感谢 [@sunjiajunsunjiajun](https://github.com/sunjiajunsunjiajun) 和 [@Lum1104](https://github.com/Lum1104) 在早期做出的贡献 —— 这个项目正是从那些工作里长出来的。
 
 ## 许可
 

@@ -1,47 +1,29 @@
-"""Deterministic temporal window + status eligibility for fusion retrieval
-(DR-013).
+"""The retrieval plan object: status eligibility (DR-014) + the trace fields
+fusion emits per query.
 
-Ported from the predecessor implementation ONLY — `QueryPlan`
-(the dataclass), `_fact_interval`, and `temporal_match`. Per the migration
-map's R2 verdict, everything else in the source file is deleted, not ported:
+`QueryPlan.default()` is the only constructor any production path reaches.
+`parse_query_plan` — the one would-be producer of a non-default plan
+(`temporal_policy="hard_filter"`) — was never ported, and neither were the
+intent classifiers or the EvidenceBoard machinery around it.
 
-  - `classify_order_intent`/`classify_order_intent_llm`/`_INTENT_LLM_PROMPT`
-    (source :140-198): zero production callers (grep-confirmed at port
-    time) — `fusion.py`/`client.py` only ever imported `QueryPlan`/
-    `temporal_match` from this module, never these.
-  - `TimeConstraint`/`parse_time_constraint`/`apply_evidence_board` (source
-    :201-477, the §C/§D EvidenceBoard machinery) and `parse_query_plan`
-    (source :480-505): R2 deletion — EvidenceBoard is gated by
-    `GRAPH_V2_BOARD`, production default OFF, and `parse_query_plan` is
-    `QueryPlan`'s only would-be producer of a non-default plan
-    (`temporal_policy="hard_filter"`) and itself has zero callers anywhere
-    in the source repo. `client.py`'s one production call site
-    (`retrieve_fusion_audit_bundle`) always constructs
-    `QueryPlan.default("query_plan_disabled")` — the zero-regression
-    fallback — never `parse_query_plan(...)`.
-  - The `_LATEST_RE`/`_OLDEST_RE`/`_HISTORY_RE` regexes (source :129-137)
-    and the `logging`/`calendar_resolve` imports that supported the deleted
-    functions: with every consumer of these three regexes gone
-    (`classify_order_intent` and `parse_time_constraint` were the only two),
-    porting them forward would just be new dead code — the source's own
-    "只搬 QueryPlan/temporal_match" instruction already implies dropping
-    everything a live consumer doesn't reach.
+What that meant in practice: `temporal_match` and `_fact_interval` sat here
+being unreachable, because the `plan_active` branch in `fusion.py` that
+called them required `trace["applied"]` true AND `temporal_policy != "none"`,
+and `default()` produces neither. Both were deleted 0806, along with that
+branch.
 
-`QueryPlan.default()` — the sole production-reachable constructor — is
-unaffected by any of these deletions: it never touches the deleted code.
-`temporal_match`'s `hard_filter`/`soft_boost` policy branches in
-`fusion.py` remain structurally present (this dataclass still carries
-`temporal_policy`) but are unreachable from `QueryPlan.default()`
-(`temporal_policy="none"`, `trace={"applied": False, ...}`) — this is
-exactly the pre-existing, byte-identical production behavior; nothing new
-is introduced or removed by this port.
+What stays is live: `allowed_statuses` drives the DR-014 status filter in
+`fusion.retrieve()`, and `temporal_plan_dict()`/`graph_plan_dict()` are
+serialized into the retrieval trace on every query. The unused plan FIELDS
+are kept with them — they are what a real planner would fill in, and the
+trace shape is observable output that costs nothing to keep stable.
 """
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 from typing import Optional
 
-from sodamem.models import FactEvent, FactKind, FactStatus
+from sodamem.models import FactStatus
 
 
 @dataclass
@@ -95,38 +77,3 @@ class QueryPlan:
         }
 
 
-def _fact_interval(fact: FactEvent, target_field: str) -> Optional[tuple[float, Optional[float]]]:
-    """按目标字段 + fact.kind 取可比较时间区间 [start, end]。
-
-    DR-014：Event(EVENT/FACT) 用 occurred_*，State(STATE/PREFERENCE/PROFILE) 用 valid_*。
-    target_time_field 显式指定 valid/source 时优先尊重之。
-    """
-    is_state = fact.kind in (FactKind.STATE, FactKind.PREFERENCE, FactKind.PROFILE)
-    if target_field == "valid_time" or (target_field == "occurred_time" and is_state):
-        start = fact.valid_from
-        if start is None:
-            return None
-        return start, fact.valid_until  # end=None 表示仍然有效
-    # occurred_time（事件）
-    start = fact.occurred_start or fact.valid_from
-    if start is None:
-        return None
-    return start, (fact.occurred_end or start)
-
-
-def temporal_match(fact: FactEvent, plan: QueryPlan) -> Optional[bool]:
-    """fact 是否落在 plan 的时间窗口内。
-
-    返回 True/False；无可比较时间返回 None（hard_filter 下视为不匹配并排除）。
-    采用区间相交判定（覆盖 as_of 时点、history 区间两类）。
-    """
-    if plan.range_start is None and plan.range_end is None:
-        return None
-    interval = _fact_interval(fact, plan.target_time_field)
-    if interval is None:
-        return None
-    fs, fe = interval
-    qs = plan.range_start if plan.range_start is not None else 0.0
-    qe = plan.range_end if plan.range_end is not None else float("inf")
-    fe_eff = fe if fe is not None else float("inf")
-    return fs <= qe and fe_eff >= qs

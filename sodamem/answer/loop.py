@@ -53,7 +53,6 @@ from sodamem.answer.context_offload import (
 from sodamem.answer.protocol import PlannerState
 from sodamem.context.store import EvidenceStore, _json_object
 from sodamem.llm import LLMProvider
-from sodamem.answer.timewords import resolve_time_window
 from sodamem.prompts.planner import PLANNER_SYSTEM_PROMPT, TOOL_GUIDE
 from sodamem.tools import MemoryTool, ToolError
 
@@ -117,7 +116,7 @@ class PlannerConfig:
     #
     # Full-500 paired, same store, only this flag differing: OFF 451/500, ON
     # 443/500 — net -8 across 42 questions moved, McNemar p = 0.28. Then two
-    # baselines that differ by NOTHING (44c7cc8 vs 5928abc, every arm off,
+    # baselines that differ by NOTHING (two runs, every arm off,
     # default paths verified identical) came out 451 and 443: net -8 across 40
     # questions moved, p = 0.27. Zero change reproduces this arm's entire
     # "effect", so the run says nothing about the gate.
@@ -134,7 +133,7 @@ class PlannerConfig:
     # either repeat the arm several times or find a deterministic metric.
     abstention_gate: bool = False
     # 0731 — see `_finalization_errors`. Default ON since the c3 full-500
-    # (58c95d2 arm): omit-rejections 61 -> 0 on top of the c2 baseline,
+    # (the c3 arm): omit-rejections 61 -> 0 on top of the c2 baseline,
     # score 453 vs 452 (p=1.0, inside the noise floor — the requirement for
     # a cost mechanism). Earlier standalone measurement on the old baseline:
     # omit-rejections 258 -> 0, pure re-submit steps 175 -> 0, tokens -3.5%.
@@ -164,7 +163,6 @@ class PlannerConfig:
     count_roster: bool = True
     # 0730 temporal arm — resolve the question's relative date expression into
     # an explicit window before the planner searches. Default OFF, same rule.
-    time_window: bool = False
     # 0731 stall stop — end the loop early when the planner is provably
     # spinning: a second exact-duplicate proposal (the runtime already skips
     # the call, so the step's only content is being told so), a fourth
@@ -294,7 +292,6 @@ def _planner_user_message(
     step: int,
     max_steps: int,
     allowed_tools: tuple[str, ...],
-    time_window: bool = False,
     cache_layout: bool = False,
     id_aliases: dict[str, str] | None = None,
     context_offload: PlannerContextOffload | None = None,
@@ -342,10 +339,6 @@ def _planner_user_message(
         # key rather than a null it has to interpret — an empty window and "I
         # could not resolve one" are different facts and must not share a
         # rendering.
-        if time_window:
-            window = resolve_time_window(question, current_date=current_date)
-            if window:
-                payload["resolved_time_window"] = window
     else:
         # Prefix-cache layout (see PlannerConfig.prompt_cache_layout):
         # constant-per-question fields, then the two append-mostly blocks
@@ -364,10 +357,6 @@ def _planner_user_message(
             "question": question,
             "current_date": current_date or "unknown",
         }
-        if time_window:
-            window = resolve_time_window(question, current_date=current_date)
-            if window:
-                payload["resolved_time_window"] = window
         payload["evidence_cards"] = cards
         payload["search_history"] = evidence_state.pop("search_history")
         payload["evidence_state"] = evidence_state
@@ -696,7 +685,6 @@ def run_planner_loop(
             question=question, current_date=current_date, state=state,
             evidence=evidence, step=step, max_steps=config.max_steps,
             allowed_tools=config.allowed_tools,
-            time_window=config.time_window,
             cache_layout=config.prompt_cache_layout,
             id_aliases=id_aliases if config.short_evidence_ids else None,
             context_offload=context_offload,

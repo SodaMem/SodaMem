@@ -36,61 +36,15 @@ def test_search_returns_search_result_envelope(tmp_path, monkeypatch):
 
 def test_search_route_defaults_to_fusion():
     assert RetrievalConfig().search_route == "fusion"
-    assert RetrievalConfig().audit_enabled is False
-    assert RetrievalConfig().audit_retention_per_user > 0
 
 
-def test_ordinary_search_does_not_write_audit_bundle(tmp_path):
-    path = tmp_path / "ordinary.sqlite3"
-    store = open_store(path, prompts={"x": "y"}, embedder=_FakeEmbedder())
-    result = search("anything", user_id="u1", store=store)
-    assert isinstance(result, SearchResult)
-    assert store._conn.execute(
-        "SELECT COUNT(*) FROM audit_bundles"
-    ).fetchone()[0] == 0
-
-
-def test_opted_in_search_writes_and_prunes_to_per_user_cap(tmp_path):
-    store = open_store(
-        tmp_path / "audited.sqlite3", prompts={"x": "y"}, embedder=_FakeEmbedder()
-    )
-    config = RetrievalConfig(
-        search_route="wide", audit_enabled=True, audit_retention_per_user=2
-    )
-    for query in ("first", "second", "third"):
-        search(query, user_id="u1", store=store, config=config)
-    rows = store._conn.execute(
-        "SELECT query FROM audit_bundles WHERE user_id=? "
-        "ORDER BY created_at DESC, bundle_id DESC",
-        ("u1",),
-    ).fetchall()
-    assert [row["query"] for row in rows] == ["third", "second"]
-
-
-def test_audit_failure_is_typed_degradation_and_does_not_fail_retrieval(
-    tmp_path, monkeypatch,
-):
-    store = open_store(
-        tmp_path / "audit_failure.sqlite3",
-        prompts={"x": "y"},
-        embedder=_FakeEmbedder(),
-    )
-
-    def fail_audit(*args, **kwargs):
-        raise sqlite3.OperationalError("injected audit failure")
-
-    monkeypatch.setattr(store, "persist_audit_bundle", fail_audit)
-    result = search(
-        "anything",
-        user_id="u1",
-        store=store,
-        config=RetrievalConfig(search_route="wide", audit_enabled=True),
-    )
-    assert isinstance(result.evidence, list)
-    assert any(
-        degradation.code == DegradationCode.AUDIT_PERSIST_FAILED
-        for degradation in result.degraded
-    )
+# Three `audit_bundles` tests lived here until 0806. They drove
+# `RetrievalConfig(audit_enabled=True)`, which no product entry point could
+# set — the retrieval-side persist branch and both config fields are gone.
+# `Store.persist_audit_bundle` and the `audit_bundles` table stay: removing
+# the table would mean bumping STORE_SCHEMA_VERSION, and every existing store
+# would then refuse to open. An unread table costs nothing; a forced migration
+# to delete it costs every user.
 
 
 def test_search_wide_route_returns_envelope(tmp_path):
@@ -113,7 +67,6 @@ def test_search_degrades_typed_when_chroma_unavailable(tmp_path):
     # degradation path directly: a Store with no chroma_dir has
     # chroma_available False by construction (Task 3).
     from sodamem.memory.storage.store import Store
-    import sqlite3
     from sodamem.memory.storage.schema import SCHEMA_DDL
     from sodamem.memory.storage.migrations import LEGACY_SENTINEL, run_migrations
     from sodamem.versioning import STORE_SCHEMA_VERSION

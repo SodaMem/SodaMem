@@ -1,14 +1,14 @@
 """Provider factory + retry shape.
 
-`create_provider`/`create_provider_for_model`/`create_provider_from_env`,
+`create_provider`/`create_provider_from_env`,
 plus an HTTP-retry shape that used to live in a second, divergent copy inside
 the benchmark harness. That copy carried two things the provider layer never
 had — a terminal/transient HTTP status split and a long-prompt gateway-false-positive
 compaction retry — folded in here so both live in one place instead of
 drifting apart in two.
 
-Two behavioral fixes carried out during this port (spec §6.7 — no silent
-degradation), both of which the predecessor implementation got wrong:
+One behavioral fix carried out during this port (spec §6.7 — no silent
+degradation), which the predecessor implementation got wrong:
   - `create_provider()`'s if/elif provider chain is replaced by a small
     dotted-path registry + `load_class()` (mem0's factory pattern, the I1
     reference implementation): 3 real lines of dispatch logic (`spec =
@@ -16,11 +16,6 @@ degradation), both of which the predecessor implementation got wrong:
     `return cls(...)`) instead of four `if provider == X: return
     SomeProvider(...)` branches with duplicated api-key/base-url resolution
     baked into each one.
-  - `create_provider_for_model()` used to fall back to "treat `name` as a
-    bare deepseek id" with only a `logger.warning` when the model wasn't in
-    the registry — a caller who mistyped a model name got a live API call
-    against a nonexistent endpoint instead of an error. It now raises
-    `ConfigError` immediately.
 """
 from __future__ import annotations
 
@@ -28,10 +23,8 @@ import importlib
 import os
 from typing import Any, Optional
 
-from sodamem.errors import ConfigError, ErrorCode
 
 from .base import LLMProvider
-from .registry_data import MODEL_REGISTRY
 
 # Provider name constants
 ANTHROPIC = "anthropic"
@@ -124,42 +117,6 @@ def create_provider(
     )
     cls = load_class(spec.class_path)
     return cls(model=resolved_model, api_key=resolved_key, base_url=resolved_base, client=client)
-
-
-def get_model_spec(name: str) -> Optional[dict]:
-    return MODEL_REGISTRY.get(name)
-
-
-def create_provider_for_model(name: str, api_key: Optional[str] = None) -> LLMProvider:
-    """Build a provider from a registered model name (`registry_data.py`).
-
-    Resolves provider/api_model/base_url from the registry and stamps the
-    provider with `max_output_tokens` (the endpoint ceiling) so each stage
-    can cap its request. Raises `ConfigError` when `name` is not registered
-    — an earlier version silently treated an unknown name as a bare
-    deepseek model id and let the API call fail (or worse, succeed against
-    the wrong endpoint) instead of failing fast at the call site that has
-    the actual typo.
-    """
-    spec = get_model_spec(name)
-    if not spec:
-        raise ConfigError(
-            f"model '{name}' is not in the registry (sodamem.llm.registry_data.MODEL_REGISTRY)",
-            code=ErrorCode.CONFIG_INVALID,
-            details={"model": name},
-        )
-    prov = create_provider(
-        provider=spec.get("provider", DEEPSEEK),
-        model=spec.get("api_model", name),
-        api_key=api_key,
-        base_url=spec.get("base_url"),
-    )
-    prov.max_output_tokens = spec.get("max_output_tokens")
-    # Send the explicit thinking toggle only for DeepSeek V4 entries that declare
-    # one (key present). Other models leave it None so no extra_body is sent.
-    if "thinking" in spec:
-        prov._thinking = bool(spec.get("thinking"))
-    return prov
 
 
 #: The pre-0806 variable names, kept working and read only when the SODAMEM_

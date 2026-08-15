@@ -10,8 +10,9 @@ import logging
 import time
 import uuid
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
+from starlette.exceptions import HTTPException as StarletteHTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
@@ -154,16 +155,25 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             ).model_dump(),
         )
 
-    @app.exception_handler(HTTPException)
-    async def _http_error(_: Request, exc: HTTPException):
+    # STARLETTE's HTTPException, not FastAPI's — and that is the whole fix.
+    # `fastapi.HTTPException` SUBCLASSES the starlette one, so registering the
+    # subclass catches only what handler code raises by hand. The router's own
+    # 404 (no route matched) and 405 (wrong method) are raised as the PARENT
+    # class and sailed straight past this handler, answering `{"detail": ...}`
+    # while every other error answered ErrorBody — which is exactly the
+    # special-casing the comment below says was eliminated. Registering the
+    # parent covers both, since FastAPI's is-a starlette's.
+    @app.exception_handler(StarletteHTTPException)
+    async def _http_error(_: Request, exc: StarletteHTTPException):
         # FastAPI's native shape is {"detail": ...}, which would make auth
         # failures the ONE response a client must special-case. Normalize every
         # error onto ErrorBody so `code` is always machine-readable (caught by
         # the TypeScript SDK's contract review, 0725).
         code = {
             400: "bad_request", 401: "unauthorized", 403: "forbidden",
-            404: "not_found", 409: "conflict", 422: "unprocessable",
-            501: "not_implemented", 503: "service_unavailable",
+            404: "not_found", 405: "method_not_allowed", 409: "conflict",
+            422: "unprocessable", 501: "not_implemented",
+            503: "service_unavailable",
         }.get(exc.status_code, "http_error")
         return JSONResponse(
             status_code=exc.status_code,

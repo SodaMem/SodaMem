@@ -1,6 +1,9 @@
 <div align="center">
 
-# SodaMem
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../assets/logo-dark.webp">
+  <img src="../assets/logo.webp" alt="SodaMem" width="260">
+</picture>
 
 **Memória temporal e rastreável para agentes de IA.**
 
@@ -8,15 +11,66 @@ Cada memória sabe de qual turno da conversa veio, e a partir de quando deixou d
 
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](../../LICENSE)
 [![Python](https://img.shields.io/badge/python-3.11%2B-blue.svg)](../../pyproject.toml)
-[![LongMemEval](https://img.shields.io/badge/LongMemEval--S-92.8%25-brightgreen.svg)](../../benchmarking/artifacts/)
+[![LongMemEval](https://img.shields.io/badge/LongMemEval-92.8%25-brightgreen.svg)](../../benchmarking/artifacts/)
+[![LoCoMo](https://img.shields.io/badge/LoCoMo-86.88%25-brightgreen.svg)](../../benchmarking/README.md#locomo-cat-1-4)
+[![Discussions](https://img.shields.io/github/discussions/SodaMem/SodaMem?logo=github&label=discussions)](https://github.com/SodaMem/SodaMem/discussions)
 
 <!-- langs -->
 [English](../../README.md) · [简体中文](README.zh-CN.md) · [日本語](README.ja.md) · [한국어](README.ko.md) · [Français](README.fr.md) · [Español](README.es.md) · [Deutsch](README.de.md) · **Português**
 <!-- /langs -->
 
+<img src="../assets/benchmark-cost-accuracy.webp" alt="Cost-accuracy trade-off on LongMemEval-S" width="760">
+
+*Precisão em função do custo estimado de API por pergunta. O quadrante que importa fica no canto superior esquerdo.*
+
 </div>
 
 ---
+
+## Benchmark
+
+<div align="center">
+  <img src="../assets/benchmark-longmemeval.webp" alt="LongMemEval: SodaMem 92.8%, Hindsight 91.4%, Mem0 OSS 91.0%" width="720">
+</div>
+
+**92,8% (464/500)** no LongMemEval.
+
+| | |
+|---|---|
+| reader / planner / judge | `deepseek-v4-flash` |
+| prompts de avaliação | os templates `evaluate_qa.py` do próprio benchmark, idênticos byte a byte |
+| store | `longmemeval_s_500_Hobs_entitysubj`, 500 usuários / 235.840 fatos |
+
+**Cada resposta e cada memória recuperada estão publicadas** em
+[`benchmarking/artifacts/`](../../benchmarking/artifacts/) — 500 respostas na
+íntegra e 8.427 evidências. Reavalie com o judge que preferir, ou entregue o
+contexto que recuperamos ao seu próprio reader e veja o que acontece com o
+número. Nenhum dos dois exige acesso a nada nosso.
+
+<div align="center">
+  <img src="../assets/benchmark-locomo.webp" alt="LoCoMo: SodaMem 86.88%, MemMachine 91.69%, Hindsight 89.61%, MIRIX 85.38%, Memobase 75.78%, Mem0 OSS 66.88%" width="720">
+</div>
+
+**86,88% (1338/1540)** no LoCoMo, categorias 1-4 — a categoria 5 (adversarial)
+fica de fora, ou seja, 1.540 das 1.986 perguntas. Acurácia de QA ponta a ponta,
+avaliada por LLM-as-judge.
+
+| | |
+|---|---|
+| reader / planner / judge | `deepseek-v4-flash` |
+| prompts de avaliação | os templates do próprio benchmark LongMemEval, copiados byte a byte |
+| store | `locomo10_Hobs`, 10 stores de usuário / 2.905 fact events |
+| code | uma build pré-lançamento — o histórico publicado começa em v0.1.0 |
+
+**Nenhum artefato por pergunta é publicado para o LoCoMo** — sem respostas, sem
+contexto recuperado, sem diretório de execução. O que está publicado é
+[a seção LoCoMo do `benchmarking/README.md`](../../benchmarking/README.md#locomo-cat-1-4):
+o detalhamento por categoria, a dispersão por conversa, a procedência e os
+passos de reprodução.
+
+---
+
+## Início rápido
 
 ```bash
 pip install "sodamem[chroma,llm]"
@@ -56,6 +110,18 @@ conversa apenas com o seu disco. Pré-carregue esse cache e ela roda offline.
 A maioria dos sistemas de memória guarda **o que** foi dito. As perguntas que os
 quebram são **desde quando deixou de ser verdade** e **de onde veio** — as duas
 são questões de modelo de dados, não de um índice vetorial maior.
+
+
+| a pergunta | a resposta de sempre | SodaMem |
+|---|---|---|
+| De onde veio esta memória? | uma pontuação de similaridade e alguns metadados | `FactEvent → SourceSpan → RawTurn`, uma cadeia de chaves estrangeiras até o turno exato |
+| O usuário mudou de ideia — e agora? | sobrescreve; o valor antigo some | só adiciona, mais uma aresta `SUPERSEDES`; a versão antiga fecha com `valid_until` e continua legível |
+| "Me mudei para Chicago ano passado" vs "me mudo ano que vem" | um único timestamp | quatro eixos de tempo: ocorrido / válido / dito / armazenado |
+| Quanto custa uma recuperação? | uma chamada de LLM por recuperação | `build_context` não faz **nenhuma** e devolve um bloco pronto para o prompt, com citações |
+| A mesma consulta duas vezes dá o mesmo resultado? | depende da amostragem do modelo | fusão determinística: mesmo store, mesma consulta, mesmo resultado |
+| Por que ele esqueceu X? | sem resposta | `/v1/events` registra cada inclusão, substituição e exclusão, com o motivo |
+
+Cada linha é desenvolvida abaixo, e todas podem ser conferidas neste repositório em vez de aceitas por confiança.
 
 ### Cada memória carrega o seu comprovante
 
@@ -120,24 +186,6 @@ tem resposta depois do fato.
 
 ---
 
-## Benchmark
-
-**92,8% (464/500)** no LongMemEval-S.
-
-| | |
-|---|---|
-| reader / planner / judge | `deepseek-v4-flash` |
-| prompts de avaliação | os templates `evaluate_qa.py` do próprio benchmark, idênticos byte a byte |
-| store | `longmemeval_s_500_Hobs_entitysubj`, 500 usuários / 235.840 fatos |
-
-**Cada resposta e cada memória recuperada estão publicadas** em
-[`benchmarking/artifacts/`](../../benchmarking/artifacts/) — 500 respostas na
-íntegra e 8.427 evidências. Reavalie com o judge que preferir, ou entregue o
-contexto que recuperamos ao seu próprio reader e veja o que acontece com o
-número. Nenhum dos dois exige acesso a nada nosso.
-
----
-
 ## Instalação
 
 | extra | o que adiciona |
@@ -155,11 +203,6 @@ Nada além disso — e há um gate no CI que quebra o build se essa lista cresce
 sem querer.
 
 
-Ainda não está no PyPI. Até a primeira release com tag, instale do código:
-
-```bash
-pip install "git+https://github.com/xlows1206/SodaMem#egg=sodamem[chroma,llm]"
-```
 
 ---
 
@@ -232,9 +275,14 @@ Detalhes na versão em inglês: [Self-hosting](../../README.md#self-hosting).
 | | |
 |---|---|
 | [Ferramentas de código](../../README.md#coding-tools) | Claude Code, Cursor e outros clientes MCP |
-| [Método do benchmark](../../benchmarking/README.md) | como o número do LongMemEval foi produzido |
+| [Método do benchmark](../../benchmarking/README.md) | como os números de benchmark foram produzidos |
 
 ---
+
+## Agradecimentos
+
+As contribuições iniciais de [@sunjiajunsunjiajun](https://github.com/sunjiajunsunjiajun) and [@Lum1104](https://github.com/Lum1104) moldaram o trabalho do qual este projeto
+nasceu. Obrigado.
 
 ## Licença
 

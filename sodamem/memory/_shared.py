@@ -50,33 +50,9 @@ from __future__ import annotations
 import hashlib
 import logging
 import re
-import sys
 from datetime import datetime
 
 logger = logging.getLogger(__name__)
-
-# Windows CRT can abort on extreme epochs before Python raises OSError.
-# Keep a wide civil-time band; out-of-range → None (no crash).
-_MIN_EPOCH = -62135596800.0  # ~0001-01-01 UTC
-_MAX_EPOCH = 253402300799.0  # ~9999-12-31 UTC
-
-
-def _safe_fromtimestamp(ts: float | int | str) -> datetime | None:
-    """Convert epoch → naive local datetime, or None if unsafe/unconvertible."""
-    try:
-        t = float(ts)
-    except (TypeError, ValueError):
-        return None
-    if t != t or t < _MIN_EPOCH or t > _MAX_EPOCH:  # NaN / absurd
-        return None
-    # On Windows, negative / far-future local fromtimestamp has historically
-    # aborted the process (STATUS_STACK_BUFFER_OVERRUN) instead of raising.
-    if sys.platform == "win32" and (t < 0.0 or t > 32503680000.0):  # ~1970..3000
-        return None
-    try:
-        return datetime.fromtimestamp(t)
-    except (ValueError, OSError, OverflowError):
-        return None
 
 
 def _ts_to_iso(ts: float | None, precision: str | None = None) -> str | None:
@@ -85,11 +61,10 @@ def _ts_to_iso(ts: float | None, precision: str | None = None) -> str | None:
     day when precision is unknown — so partial precision reaches the reader."""
     if ts is None:
         return None
-    dt = _safe_fromtimestamp(ts)
-    if dt is None:
-        logger.warning(
-            "_ts_to_iso: could not convert epoch %r to a date — returning None", ts
-        )
+    try:
+        dt = datetime.fromtimestamp(float(ts))
+    except Exception as e:
+        logger.warning("_ts_to_iso: could not convert epoch %r to a date (%s) — returning None", ts, e)
         return None
     if precision == "year":
         return dt.strftime("%Y")
@@ -100,7 +75,6 @@ def _ts_to_iso(ts: float | None, precision: str | None = None) -> str | None:
     if precision == "second":
         return dt.strftime("%Y-%m-%dT%H:%M:%S")
     return dt.strftime("%Y-%m-%d")
-
 
 
 def _iso_to_ts(value) -> float | None:

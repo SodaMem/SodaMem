@@ -10,9 +10,5 @@ data/
 
 # Local handoff notes — machine paths and internal history, never shipped.
 context.md
-
-# --- SodaMem-dev only ---------------------------------------------------
-# Frozen benchmark stores and run output never enter git, same as upstream.
-memory.db
-*.jsonl
-*.jsonl.gz
+# Agent workspace: internal specs, worktrees, session state. Never public.
+.claude/

@@ -10,20 +10,15 @@ import types
 
 import pytest
 
-from sodamem.errors import ConfigError, ErrorCode, ProviderError
+from sodamem.errors import ErrorCode, ProviderError
 from sodamem.llm.anthropic import AnthropicProvider
-from sodamem.llm.factory import create_provider, create_provider_for_model
+from sodamem.llm.factory import create_provider
 from sodamem.llm.openai_compat import OpenAICompatibleProvider
 from sodamem.llm.testing import EchoProvider, RaisingProvider
 
 # ---------------------------------------------------------------------------
 # Brief Step 3's required 4 tests (verbatim)
 # ---------------------------------------------------------------------------
-
-
-def test_create_provider_for_unknown_model_raises_config_error():
-    with pytest.raises(ConfigError):
-        create_provider_for_model("totally-made-up-model-id-xyz")
 
 
 def test_raising_provider_raises_on_complete():
@@ -97,21 +92,11 @@ def test_create_provider_registry_dispatches_by_name(monkeypatch):
     custom_provider = create_provider(provider="some-custom-gateway", model="x", base_url="https://x.example")
     assert isinstance(custom_provider, OpenAICompatibleProvider)
     assert custom_provider._client.kwargs.get("base_url") == "https://x.example"
-
-
-# ---------------------------------------------------------------------------
-# Fix 2: create_provider_for_model() unknown model -> ConfigError (also
-# covered by the design's required test above; this adds the registered-model
-# success path plus the max_output_tokens/_thinking stamping behavior).
-# ---------------------------------------------------------------------------
-
-
-def test_create_provider_for_registered_model_stamps_output_ceiling(monkeypatch):
-    monkeypatch.setitem(sys.modules, "openai", _fake_openai_module())
-    prov = create_provider_for_model("deepseek-v4-flash")
-    assert isinstance(prov, OpenAICompatibleProvider)
-    assert prov.max_output_tokens == 393216
-    assert prov._thinking is False
+# `create_provider_for_model` and its MODEL_REGISTRY were removed 0806: the
+# function sat in `sodamem.llm.__all__` with zero callers anywhere in the
+# product, and it was the registry's only consumer — a 50-line model
+# capability table read by one unused API. Its tests went with it.
+# `create_provider` is what everything actually calls.
 
 
 # ---------------------------------------------------------------------------

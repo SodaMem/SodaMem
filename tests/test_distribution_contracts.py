@@ -73,9 +73,7 @@ def test_setuptools_discovers_only_the_product_package_roots():
     behind it."""
     metadata = _project_metadata()
     include = metadata["tool"]["setuptools"]["packages"]["find"]["include"]
-    assert include == [
-        "sodamem*", "sodamem_cli*", "sodamem_opt*", "mcp_server*", "server*", "adapters*"
-    ]
+    assert include == ["sodamem*", "sodamem_cli*", "mcp_server*", "server*", "adapters*"]
 
     packages = {
         ".".join(path.relative_to(ROOT).parent.parts)
@@ -85,7 +83,7 @@ def test_setuptools_discovers_only_the_product_package_roots():
             for pattern in include
         )
     }
-    assert {"sodamem", "sodamem_cli", "sodamem_opt", "mcp_server", "server", "server.routes",
+    assert {"sodamem", "sodamem_cli", "mcp_server", "server", "server.routes",
             "adapters"} <= packages
     assert not any(
         package == excluded or package.startswith(f"{excluded}.")

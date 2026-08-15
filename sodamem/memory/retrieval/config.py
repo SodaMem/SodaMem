@@ -36,7 +36,6 @@ class DegradationCode(str, Enum):
     # first-class typed signal, not just a log line" contract applies.
     ORGANIZER_LLM_ERROR = "organizer_llm_error"
     ORGANIZER_UNPARSEABLE = "organizer_unparseable"
-    AUDIT_PERSIST_FAILED = "audit_persist_failed"
 
 
 @dataclass(frozen=True)
@@ -88,8 +87,6 @@ class RetrievalConfig:
     route_limit_floor: int = 80
     vector_route_cap: int = 60
     summary_route_cap: int = 20
-    structured_entity_cap: int = 20
-    structured_anchor_fact_cap: int = 12
     rrf_k: float = 60.0
     max_route_score_cap: float = 5.0
     max_route_score_weight: float = 0.05
@@ -100,6 +97,4 @@ class RetrievalConfig:
     derived_currency: bool = False               # GRAPH_V2_DERIVED_CURRENCY
     raw_recall_enabled: bool = True               # GRAPH_V2_RAW_RECALL, single source (see FusionConfig note)
     fact_group_enabled: bool = True               # GRAPH_V2_FACT_GROUP — kept pending Step 1 audit (see R2.9 candidate note above); do not remove without a documented audit finding
-    audit_enabled: bool = False
-    audit_retention_per_user: int = 100
     fusion: FusionConfig = field(default_factory=FusionConfig)

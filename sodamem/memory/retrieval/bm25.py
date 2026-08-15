@@ -34,15 +34,7 @@ from sodamem.models import FactEvent, RawTurn, SourceSpan, SummarySynthesis, fac
 
 
 def _bm25_tokens(text: str) -> list[str]:
-    """Latin tokens (with light English stemming) plus CJK char unigrams/bigrams.
-
-    Pure CJK used to tokenize to ``[]`` for every document; ``rank_bm25`` then
-    divides by ``len(idf) == 0`` and raises ZeroDivisionError. Character-level
-    CJK tokens keep the lexical tunnel usable for Chinese/Japanese/Korean text
-    without adding a segmenter dependency.
-    """
-    text = str(text or "").lower()
-    tokens = re.findall(r"[a-z0-9][a-z0-9'\-]*", text)
+    tokens = re.findall(r"[a-z0-9][a-z0-9'\-]*", str(text or "").lower())
     expanded = []
     for tok in tokens:
         expanded.append(tok)
@@ -54,19 +46,7 @@ def _bm25_tokens(text: str) -> list[str]:
             expanded.append(tok[:-2])
         elif len(tok) > 3 and tok.endswith("s"):
             expanded.append(tok[:-1])
-    cjk = re.findall(r"[\u4e00-\u9fff]", text)
-    expanded.extend(cjk)
-    if len(cjk) >= 2:
-        expanded.extend(a + b for a, b in zip(cjk, cjk[1:]))
     return expanded
-
-
-def _bm25_or_none(corpus: list[list[str]]):
-    """Build BM25Okapi, or None when every doc has zero tokens (empty idf)."""
-    if not corpus or not any(corpus):
-        return None
-    from rank_bm25 import BM25Okapi
-    return BM25Okapi(corpus)
 
 
 class BM25Index:
@@ -87,7 +67,7 @@ class BM25Index:
 
     def search_summary_syntheses(self, query: str, user_id: str, n: int = 10) -> list[tuple[SummarySynthesis, float]]:
         try:
-            import rank_bm25  # noqa: F401 — optional dependency gate
+            from rank_bm25 import BM25Okapi
         except ImportError:
             return []
         cached = self._summary_cache.get(user_id)
@@ -98,10 +78,8 @@ class BM25Index:
             if not summaries:
                 self._summary_cache[user_id] = (current_ver, None, [])
                 return []
-            bm25 = _bm25_or_none([_bm25_tokens(s.summary_text) for s in summaries])
+            bm25 = BM25Okapi([_bm25_tokens(s.summary_text) for s in summaries])
             self._summary_cache[user_id] = (current_ver, bm25, summaries)
-            if bm25 is None:
-                return []
         else:
             _, bm25, summaries = cached
             if bm25 is None:
@@ -112,7 +90,7 @@ class BM25Index:
 
     def search_source_spans(self, query: str, user_id: str, n: int = 30) -> list[tuple[SourceSpan, float]]:
         try:
-            import rank_bm25  # noqa: F401
+            from rank_bm25 import BM25Okapi
         except ImportError:
             return []
         cached = self._span_cache.get(user_id)
@@ -122,10 +100,8 @@ class BM25Index:
             if not spans:
                 self._span_cache[user_id] = (current_ver, None, [])
                 return []
-            bm25 = _bm25_or_none([_bm25_tokens(s.text) for s in spans])
+            bm25 = BM25Okapi([_bm25_tokens(s.text) for s in spans])
             self._span_cache[user_id] = (current_ver, bm25, spans)
-            if bm25 is None:
-                return []
         else:
             _, bm25, spans = cached
             if bm25 is None:
@@ -141,7 +117,7 @@ class BM25Index:
         raw_recall existed — no backfill needed for the lexical path.
         """
         try:
-            import rank_bm25  # noqa: F401
+            from rank_bm25 import BM25Okapi
         except ImportError:
             return []
         cached = self._raw_turn_cache.get(user_id)
@@ -151,10 +127,8 @@ class BM25Index:
             if not turns:
                 self._raw_turn_cache[user_id] = (current_ver, None, [])
                 return []
-            bm25 = _bm25_or_none([_bm25_tokens(t.content) for t in turns])
+            bm25 = BM25Okapi([_bm25_tokens(t.content) for t in turns])
             self._raw_turn_cache[user_id] = (current_ver, bm25, turns)
-            if bm25 is None:
-                return []
         else:
             _, bm25, turns = cached
             if bm25 is None:
@@ -165,7 +139,7 @@ class BM25Index:
 
     def search_fact_events(self, query: str, user_id: str, n: int = 30) -> list[tuple[FactEvent, float]]:
         try:
-            import rank_bm25  # noqa: F401
+            from rank_bm25 import BM25Okapi
         except ImportError:
             return []
         cached = self._fact_cache.get(user_id)
@@ -175,10 +149,8 @@ class BM25Index:
             if not facts:
                 self._fact_cache[user_id] = (current_ver, None, [])
                 return []
-            bm25 = _bm25_or_none([_bm25_tokens(fact_search_document(f)) for f in facts])
+            bm25 = BM25Okapi([_bm25_tokens(fact_search_document(f)) for f in facts])
             self._fact_cache[user_id] = (current_ver, bm25, facts)
-            if bm25 is None:
-                return []
         else:
             _, bm25, facts = cached
             if bm25 is None:

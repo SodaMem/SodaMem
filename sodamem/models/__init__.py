@@ -501,36 +501,6 @@ class FactEvent:
 
 
 @dataclass
-class AnswerEvidenceBundle:
-    """Evidence handed from the memory layer to a reader.
-
-    I4 gate symbol (frozen name — see `tests/gates/test_i4_bundle_fields.py`):
-    this bundle carries evidence only, never reading/answering instructions.
-    An `answer_task` field was deliberately dropped: it let the memory layer
-    dictate to the reader how to answer, which belongs to the answer layer,
-    not here.
-    """
-    query: str
-    result: dict = field(default_factory=dict)
-    key_evidence: list = field(default_factory=list)
-    key_derived: list = field(default_factory=list)
-    answer_notes: list = field(default_factory=list)
-    answer_constraints: list = field(default_factory=list)
-    bundle_id: str = field(default_factory=lambda: "answer_bundle_" + str(uuid.uuid4()))
-
-    def to_dict(self) -> dict:
-        return {
-            "bundle_id": self.bundle_id,
-            "query": self.query,
-            "result": self.result,
-            "key_evidence": self.key_evidence,
-            "key_derived": self.key_derived,
-            "answer_notes": self.answer_notes,
-            "answer_constraints": self.answer_constraints,
-        }
-
-
-@dataclass
 class AuditBundle:
     recall_plan: dict = field(default_factory=dict)
     retrieval_policy: dict = field(default_factory=dict)
