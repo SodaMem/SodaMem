@@ -89,11 +89,14 @@ the per-category breakdown, the per-conversation spread, provenance and repro st
 
 ## Quick start
 
-| If you want to... | Use |
-|---|---|
-| Call it from Python directly | the library below |
-| Run it as a standalone service | [Self-hosting](#self-hosting) |
-| Wire it into Claude Code, Cursor, etc. | [Coding tools](#coding-tools) |
+| What you're doing | Use | Go to |
+|---|---|---|
+| Calling it from Python directly | `pip install sodamem` | the code below, no jump needed |
+| Wiring into LangGraph / CrewAI / OpenAI Agents SDK | the Python adapter | [Agent integrations](#agent-integrations) |
+| Wiring into Hermes Agent / DeepSeek Harness | MCP | [Agent integrations](#agent-integrations) |
+| Wiring into Claude Code, Cursor, or another coding client | `sodamem install` | [Coding tools](#coding-tools) |
+| Using it from a TypeScript / Node project | `sdk-ts` | [Use it from anywhere](#use-it-from-anywhere) |
+| Standing up a service shared by multiple clients | Docker | [Self-hosting](#self-hosting) |
 
 ```bash
 pip install "sodamem[chroma,llm]"
