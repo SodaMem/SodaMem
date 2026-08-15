@@ -89,7 +89,7 @@ the per-category breakdown, the per-conversation spread, provenance and repro st
 
 ## Quick start
 
-This is the Python path. Wiring into an agent framework or MCP client? See [Agent integrations](#agent-integrations). Running it as a shared service? See [Self-hosting](#self-hosting).
+This is the Python path. Wiring into an agent framework or MCP client? See [Agent integrations](#agent-integrations). Calling it from TypeScript/Node? See [Use it from anywhere](#use-it-from-anywhere). Running it as a shared service? See [Self-hosting](#self-hosting).
 
 ### Example
 
