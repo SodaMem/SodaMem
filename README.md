@@ -135,26 +135,26 @@ Cursor hooks via `sodamem install`.
 
 ## Benchmark
 
-**93.6% (468/500)** on LongMemEval-S with **Typed Answer Schema (TAS)** —
-up from the published artifact **92.8% (464/500)**. Every artifact answer and
-retrieved memory remains in [`benchmarking/artifacts/`](benchmarking/artifacts/);
-TAS answers live under [`benchmarking/protocol_v1.0/ARCHIVE_S500/`](benchmarking/protocol_v1.0/ARCHIVE_S500/).
+**93.6% (468/500)** on LongMemEval-S with **Protocol v1.0** (current headline).
+The published reproducible artifact run remains **92.8% (464/500)** — every
+answer and retrieved memory is in [`benchmarking/artifacts/`](benchmarking/artifacts/).
 
-| | TAS (headline) | Published artifact |
+| | Protocol v1.0 (headline) | Published artifact |
 |---|---|---|
 | score | **468/500** | 464/500 |
 | reader / planner / judge | `deepseek-v4-flash` | same |
 | judge prompts | LongMemEval `evaluate_qa.py`, byte-identical | same |
-| store | `longmemeval_s_500_Hobs_entitysubj` | same |
-| path | [`benchmarking/protocol_v1.0/`](benchmarking/protocol_v1.0/) | [`benchmarking/artifacts/`](benchmarking/artifacts/) |
+| store | `longmemeval_s_500_Hobs_entitysubj`, 500 users / 235,840 facts | same |
+| protocol | [`benchmarking/protocol_v1.0/`](benchmarking/protocol_v1.0/) | Plan B+ baseline in artifacts |
 
-**Two layers, one stack:** `sodamem` is the memory engine; **TAS** is the
-answer-side discipline (question schema → structured advisories) stacked on
-Plan B+ (`sodamem_opt`). It is not a separate product version — the Python
-package version is in `pyproject.toml`.
+**Two layers, one stack:** `sodamem` is the memory engine; **Protocol v1.0**
+is the answer-side discipline (question schema, keep-count cardinality, TR/MR
+advisories) layered for LongMemEval. It is not a separate "SodaMem product 1.0
+release" — the Python package version is in `pyproject.toml`.
 
-Reproduce TAS: [`benchmarking/protocol_v1.0/README.md`](benchmarking/protocol_v1.0/README.md).
-Re-grade published answers: [`benchmarking/artifacts/`](benchmarking/artifacts/).
+Reproduce the headline run: see [`benchmarking/protocol_v1.0/README.md`](benchmarking/protocol_v1.0/README.md).
+Re-grade published answers: [`benchmarking/artifacts/`](benchmarking/artifacts/) —
+500 answers verbatim, 8,427 evidence rows. Neither needs our services.
 
 ---
 

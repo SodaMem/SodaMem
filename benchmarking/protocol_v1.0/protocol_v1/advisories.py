@@ -41,10 +41,11 @@ def build_protocol_advisories(
     schema = parse_question_schema(question)
     card = extract_cardinality(question)
     advisories: list[str] = [
-        "tas question_schema: "
+        "protocol_v1.0 question_schema: "
         f"task={schema.task} predicate={schema.predicate!r} "
         f"count_unit={schema.count_unit} axis={schema.axis} "
         f"slot={schema.slot_name!r} modifiers={list(schema.modifiers)} "
+        f"exclude={list(schema.exclude_predicates)} "
         f"cardinality={card}"
     ]
 
@@ -56,7 +57,22 @@ def build_protocol_advisories(
         advisories.append(s)
 
     ql = (question or "").lower()
-    if schema.task == "ABSTAIN":
+    ie_soften = any(
+        k in ql
+        for k in (
+            "framerate",
+            "hamt",
+            "hardware-aware",
+            "paper",
+            "recommended",
+            "average improvement",
+        )
+    )
+    if schema.task == "ABSTAIN" or "poster" in ql:
+        advisories.append(abstain_advisory(schema, soften_ie=False))
+    elif ie_soften:
+        advisories.append(abstain_advisory(schema, soften_ie=True))
+    elif "university" in ql:
         advisories.append(abstain_advisory(schema, soften_ie=False))
 
     roster = collect_roster(evidence)
@@ -124,7 +140,22 @@ def build_protocol_advisories(
         advisories.append(sg.replace("protocol_v1.0", "protocol_v1.0"))
 
     entity_names: list[str] | None = None
-    if schema.count_unit == "entity" or schema.task == "COUNT_DISTINCT":
+    if schema.count_unit == "entity" or (
+        schema.task == "COUNT_DISTINCT"
+        and any(
+            k in ql
+            for k in (
+                "bike",
+                "kitchen",
+                "album",
+                "furniture",
+                "instrument",
+                "tank",
+                "jewelry",
+                "project",
+            )
+        )
+    ):
         entity_names, _n_ent = entity_summary(admitted, schema)
         if not entity_names:
             texts = []

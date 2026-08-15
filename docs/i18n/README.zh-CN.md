@@ -111,22 +111,23 @@ organizer，所以那条路由的零 LLM 保证不可能被某个请求参数翻
 
 ## 跑分
 
-LongMemEval-S **93.6%（468/500）**——**Typed Answer Schema（TAS）** 当前 headline，
-相对公开 artifact **92.8%（464/500）** 的提升。Artifact 见
+LongMemEval-S **93.6%（468/500）**——**Protocol v1.0** 当前 headline。
+已公开的 artifact 复现跑分仍为 **92.8%（464/500）**，见
 [`benchmarking/artifacts/`](../../benchmarking/artifacts/)。
 
-| | TAS | 公开 artifact |
+| | Protocol v1.0 | 公开 artifact |
 |---|---|---|
 | 分数 | **468/500** | 464/500 |
 | reader / planner / judge | `deepseek-v4-flash` | 相同 |
 | 判分 | LongMemEval 官方 `evaluate_qa.py` | 相同 |
 | store | `longmemeval_s_500_Hobs_entitysubj` | 相同 |
-| 路径 | [`protocol_v1.0/`](../../benchmarking/protocol_v1.0/)（TAS） | [`artifacts/`](../../benchmarking/artifacts/) |
+| 协议树 | [`benchmarking/protocol_v1.0/`](../../benchmarking/protocol_v1.0/) | Plan B+ 基线 |
 
-**两层叠在一起：** `sodamem` 是记忆引擎；**TAS** 是答题侧题型 schema 与结构化约束，
-叠在 Plan B+（`sodamem_opt`）之上。
+**两层叠在一起：** `sodamem` 是记忆引擎；**Protocol v1.0** 是 LongMemEval
+答题侧协议（题型 schema、keep-count 计数等），**不是** Python 包的「1.5 产品版」。
 
-复现 TAS：[`protocol_v1.0/README.md`](../../benchmarking/protocol_v1.0/README.md)。
+复现 headline：[`protocol_v1.0/README.md`](../../benchmarking/protocol_v1.0/README.md)。
+重判 artifact：500 条答案 + 8427 条证据，无需接触我们的服务。
 
 ---
 

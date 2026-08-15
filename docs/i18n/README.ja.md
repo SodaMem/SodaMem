@@ -118,7 +118,7 @@ LLM オーガナイザ（value-board / enumeration-sweep）を走らせ、「知
 
 ## ベンチマーク
 
-LongMemEval-S **93.6%（468/500）** — **Typed Answer Schema（TAS）** headline。公開 artifact は **92.8%（464/500）**。
+LongMemEval-S **93.6%（468/500）** — **Protocol v1.0** headline。公開 artifact は **92.8%（464/500）**。
 
 | | |
 |---|---|

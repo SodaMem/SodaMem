@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run LongMemEval-S under Typed Answer Schema / TAS (Plan B+ then TAS advisories)."""
+"""Run LongMemEval-S under Protocol v1.0 (Plan B+ then protocol advisories)."""
 from __future__ import annotations
 
 import argparse
@@ -66,7 +66,7 @@ def main() -> int:
     v_root = Path(__file__).resolve().parent
     default_out = str(v_root / "results_s500")
 
-    ap = argparse.ArgumentParser(description="Typed Answer Schema (TAS) LongMemEval-S runner")
+    ap = argparse.ArgumentParser(description="Protocol v1.0 LongMemEval-S runner")
     ap.add_argument("--concurrency", type=int, default=6)
     ap.add_argument("--out", default=default_out)
     ap.add_argument("--only", required=True, help="JSON list or line file of eval_ids")

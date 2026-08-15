@@ -1,4 +1,4 @@
-# TAS — Full S500
+# Protocol v1.0 — Full S500
 
 **Correct:** 468/500 = **93.6%**
 
@@ -10,7 +10,6 @@
 | MR | 103/121 |
 | TR | 118/127 |
 
-**Baseline:** published artifact **464/500 (92.8%)**; Soft / Plan B+ ≈ **461/500**.
-**TAS** = **468/500 (93.6%)**.
+**Baseline:** Soft / Plan B+ ≈ **461/500**. Protocol v1.0 (keep-count) = **468/500**.
 
 Machine-readable summary: [`ARCHIVE_S500/summary.json`](ARCHIVE_S500/summary.json).

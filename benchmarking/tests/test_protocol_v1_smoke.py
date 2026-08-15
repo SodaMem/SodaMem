@@ -33,7 +33,7 @@ def test_protocol_runner_help_dry_run():
     )
     assert proc.returncode == 0, proc.stderr
     assert "--only" in proc.stdout
-    assert "Protocol v1.0" in proc.stdout or "LongMemEval" in proc.stdout or "TAS" in proc.stdout or "Typed" in proc.stdout
+    assert "Protocol v1.0" in proc.stdout or "LongMemEval" in proc.stdout
 
 
 def test_protocol_archive_ships_answers_and_summary():

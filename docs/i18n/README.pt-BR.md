@@ -122,7 +122,7 @@ tem resposta depois do fato.
 
 ## Benchmark
 
-**93,6% (468/500)** no LongMemEval-S com **Typed Answer Schema (TAS)** (headline), em relação ao artifact publicado **92,8% (464/500)**.
+**93,6% (468/500)** no LongMemEval-S com **Protocol v1.0** (headline). O artifact publicado permanece **92,8% (464/500)**.
 
 | | |
 |---|---|

@@ -1,10 +1,10 @@
-# Protocol archive — LongMemEval-S (TAS)
+# Protocol v1.0 — LongMemEval-S archive
 
 **Score: 468/500 = 93.6%**
 
 | Field | Value |
 |---|---|
-| Method | Typed Answer Schema (TAS) |
+| Protocol | v1.0 (keep-count; no HARD_STOP) |
 | Model | `deepseek-v4-flash` |
 | Store | `longmemeval_s_500_Hobs_entitysubj` |
 | Archived (UTC) | 2026-08-12T12:25:58.438673+00:00 |
@@ -23,9 +23,8 @@
 
 | Stack | Correct |
 |------|---------|
-| Published artifact | 464/500 (92.8%) |
 | Soft / Plan B+ (0.x) | ~461/500 |
-| **TAS** | **468/500 (93.6%)** |
+| **Protocol v1.0** | **468/500** |
 
 ## Miss list (32)
 
