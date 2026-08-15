@@ -89,14 +89,9 @@ the per-category breakdown, the per-conversation spread, provenance and repro st
 
 ## Quick start
 
-| What you're doing | Use | Go to |
-|---|---|---|
-| Calling it from Python directly | `pip install sodamem` | the code below, no jump needed |
-| Wiring into LangGraph / CrewAI / OpenAI Agents SDK | the Python adapter | [Agent integrations](#agent-integrations) |
-| Wiring into Hermes Agent / DeepSeek Harness | MCP | [Agent integrations](#agent-integrations) |
-| Wiring into Claude Code, Codex CLI, OpenCode, Cursor, or another coding client | `sodamem install` | [Coding tools](#coding-tools) |
-| Using it from a TypeScript / Node project | `sdk-ts` | [Use it from anywhere](#use-it-from-anywhere) |
-| Standing up a service shared by multiple clients | Docker | [Self-hosting](#self-hosting) |
+This is the Python path. Wiring into an agent framework or MCP client? See [Agent integrations](#agent-integrations). Running it as a shared service? See [Self-hosting](#self-hosting).
+
+### Example
 
 ```bash
 pip install "sodamem[chroma,llm]"
@@ -107,7 +102,6 @@ from sodamem import SodaMem
 from sodamem.llm import create_provider_from_env      # SODAMEM_LLM_API_KEY etc.
 from sodamem.memory.ingest.extractor import FactEventExtractorV2
 
-# Writing needs a model to extract facts with; reading never does.
 mem = SodaMem.open("./data", extractor=FactEventExtractorV2(create_provider_from_env()))
 
 mem.ingest(
