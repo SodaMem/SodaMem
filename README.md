@@ -19,7 +19,7 @@ Most memory layers store what you said, full stop. SodaMem also names the turn e
 **English** · [简体中文](https://github.com/SodaMem/SodaMem/blob/main/docs/i18n/README.zh-CN.md) · [日本語](https://github.com/SodaMem/SodaMem/blob/main/docs/i18n/README.ja.md) · [한국어](https://github.com/SodaMem/SodaMem/blob/main/docs/i18n/README.ko.md) · [Français](https://github.com/SodaMem/SodaMem/blob/main/docs/i18n/README.fr.md) · [Español](https://github.com/SodaMem/SodaMem/blob/main/docs/i18n/README.es.md) · [Deutsch](https://github.com/SodaMem/SodaMem/blob/main/docs/i18n/README.de.md) · [Português](https://github.com/SodaMem/SodaMem/blob/main/docs/i18n/README.pt-BR.md)
 <!-- /langs -->
 
-<sub>[Agent integrations](#agent-integrations) · [Benchmark](#benchmark) · [Quick start](#quick-start) · [Why another memory layer](#why-another-memory-layer) · [Install](#install) · [Use it from anywhere](#use-it-from-anywhere) · [Coding tools](#coding-tools) · [Self-hosting](#self-hosting) · [Contributing](#contributing)</sub>
+[Agent integrations](#agent-integrations) · [Benchmark](#benchmark) · [Quick start](#quick-start) · [Why another memory layer](#why-another-memory-layer) · [Install](#install) · [Use it from anywhere](#use-it-from-anywhere) · [Coding tools](#coding-tools) · [Self-hosting](#self-hosting) · [Contributing](#contributing)
 
 <img src="https://raw.githubusercontent.com/SodaMem/SodaMem/main/docs/assets/benchmark-cost-accuracy.webp" alt="Cost-accuracy trade-off on LongMemEval-S: SodaMem sits in the high-accuracy, low-cost quadrant" width="760">
 
@@ -144,8 +144,7 @@ model, not a bigger vector index.
 | Same query twice — same answer? | depends on the model's sampling | deterministic fusion: same store, same query, same result |
 | Why did it forget X? | no answer | `/v1/events` records every add, supersede and delete, with its reason |
 
-Each row is expanded below, and each one is something you can check in this
-repository rather than take on faith.
+Two of these are worth a closer look — the rest is what the table already says.
 
 ### Every memory carries its receipt
 
@@ -162,8 +161,7 @@ date         = 2023-05-25
 ```
 
 `FactEvent → SourceSpan → RawTurn` is a foreign-key chain, not a similarity
-score. When a user asks *"why do you think that about me?"* there is an
-answer. When compliance asks where a stored fact came from, there is a row.
+score, so *"why do you think that about me?"* has an answer.
 
 ### Four time axes, not one timestamp
 
@@ -175,35 +173,7 @@ answer. When compliance asks where a stored fact came from, there is a row.
 | `created_at` | when we stored it |
 
 One timestamp cannot separate "I *moved* to Chicago last year" from "I *will
-move* next year", and cannot express a fact that stopped being true.
-
-Corrections are **ADD-only**: a new version plus a `SUPERSEDES` edge, never an
-in-place rewrite. `PATCH /v1/memories/{id}` closes the old version with a
-`valid_until` and leaves it readable — that is the whole difference from
-`DELETE`.
-
-### Two retrieval tiers, and the cheap one is genuinely free
-
-| tier | LLM calls | for |
-|---|---|---|
-| `search` / `build_context` | **zero** | the default path: deterministic BM25 + vector + entity fusion |
-| `answer` | planner loop | hard multi-hop questions worth the tokens |
-
-`build_context` returns a **prompt-ready block with citations** and makes no
-model call. Most systems hand you a list of records and leave the assembly —
-and the token budgeting, and the dedup — to you.
-
-There is a third, in-between tier: `build_context(organizer=...)` runs an
-LLM-backed organizer (value-board, enumeration-sweep) over the retrieved set
-for questions like "list every X you know about me". It is Python-only on
-purpose — `/v1/context` never accepts one, so the zero-LLM guarantee on that
-route cannot be flipped by a request parameter.
-
-### Retrieval you can audit
-
-Same query, same store, same result, every time. `/v1/events` records every
-add, supersede and delete with its reason, so *"why did the agent forget X"*
-is answerable after the fact instead of a shrug.
+move* next year", or express a fact that stopped being true.
 
 ---
 
@@ -236,7 +206,11 @@ curl -H "Authorization: Bearer $KEY" -H "Content-Type: application/json" \
 ```
 
 `/v1/context` and `/v1/search` both take a JSON body; `/v1/context` also
-answers a plain GET with query params, since it is a pure read.
+answers a plain GET with query params, since it is a pure read. The one
+Python-only exception is `build_context(organizer=...)`, which runs an
+LLM-backed organizer over the retrieved set for questions like "list
+everything you know about me" — `/v1/context` never accepts one, so the
+zero-LLM guarantee over HTTP can't be flipped by a request parameter.
 
 **SDKs** — TypeScript over HTTP ([`sdk-ts/`](https://github.com/SodaMem/SodaMem/tree/main/sdk-ts/), zero runtime
 dependencies, ESM + CJS). Python talks to the library directly — `import
