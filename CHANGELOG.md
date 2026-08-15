@@ -11,6 +11,24 @@ bottom.
 
 ## [Unreleased]
 
+### Fixed
+
+- **Tool timeout** — `MemoryTool.dispatch`'s 45s timeout guard no longer leaves a
+  non-daemon worker thread behind after a call times out; the timed-out worker
+  now runs as daemon so it can't block process exit.
+- **BM25 retrieval** — CJK (Chinese/Japanese/Korean) tokenization support and an
+  empty-corpus guard in `sodamem/memory/retrieval/bm25.py`.
+- **Timestamp / file-lock robustness** — `_safe_fromtimestamp` in
+  `sodamem/memory/_shared.py` now guards against out-of-range timestamps instead
+  of raising, and `maintenance_lock.py` falls back gracefully on platforms
+  without `fcntl` (e.g. Windows).
+
+### Added
+
+- **`integrations/` directory** — Hermes Agent and DeepSeek Harness MCP
+  integration guides, the DeepSeek Harness `dsh` patch config, and the shared
+  MCP server warm-up script (`scripts/sodamem_mcp_warm.py`).
+
 ## [0.1.0] — 2026-08-07
 
 First public release.

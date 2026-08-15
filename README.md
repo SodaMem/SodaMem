@@ -33,11 +33,12 @@ Every memory can name the turn it came from, and knows when it stopped being tru
 
 | Runtime | Guide |
 |---|---|
-| **Hermes Agent** | [`HERMES_INTEGRATION.md`](HERMES_INTEGRATION.md) |
-| **DeepSeek Harness** | [`DEEPSEEK_HARNESS_INTEGRATION.md`](DEEPSEEK_HARNESS_INTEGRATION.md) |
+| **Hermes Agent** | [`integrations/hermes/README.md`](integrations/hermes/README.md) |
+| **DeepSeek Harness** | [`integrations/deepseek-harness/README.md`](integrations/deepseek-harness/README.md) |
 
-Also shipped: LangGraph, CrewAI, OpenAI Agents SDK, Vercel AI SDK
-([`adapters/`](adapters/)), MCP ([`mcp_server/`](mcp_server/)), and Claude Code /
+Full index (including code-level LangGraph / CrewAI / OpenAI Agents SDK / Vercel AI SDK
+integrations): [`integrations/README.md`](integrations/README.md). Also shipped:
+[`adapters/`](adapters/), MCP ([`mcp_server/`](mcp_server/)), and Claude Code /
 Cursor hooks via `sodamem install`.
 
 ---

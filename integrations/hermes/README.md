@@ -5,6 +5,8 @@ Connect SodaMem memory to Hermes Agent for retention, retrieval, context recall,
 - Platforms: Windows / macOS / Linux
 - Transport: MCP (stdio)
 
+Related guides: [DeepSeek Harness](../deepseek-harness/README.md) · [Generic MCP](../../mcp_server/README.md)
+
 ---
 
 ## Quick start
@@ -37,7 +39,8 @@ mcp_servers:
 
 > ⚠️ Hermes filters subprocess environment variables. Put the LLM key under `env:`; a shell export alone is not enough.
 
-The warm-up script referenced by `args` prevents the first tool call from timing out:
+The warm-up script referenced by `args` prevents the first tool call from timing out. See
+[`scripts/sodamem_mcp_warm.py`](../../scripts/sodamem_mcp_warm.py):
 
 ```python
 # sodamem_mcp_warm.py
