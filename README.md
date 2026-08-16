@@ -34,13 +34,19 @@ Most memory systems store what you said and stop there — correct today, silent
 | Runtime | How | Guide |
 |---|---|---|
 | **Hermes Agent** | MCP | [`integrations/hermes/README.md`](integrations/hermes/README.md) |
-| **DeepSeek Harness** | MCP | [`integrations/deepseek-harness/README.md`](integrations/deepseek-harness/README.md) |
+| **DeepSeek Harness** | **native plugin — auto-injected every turn** *(recommended)* | [`dsh-plugin/`](dsh-plugin/) |
+| **DeepSeek Harness** | MCP — tool-based, the model must choose to call it | [`integrations/deepseek-harness/README.md`](integrations/deepseek-harness/README.md) |
 | **Generic / any MCP client** | MCP | [`mcp_server/README.md`](mcp_server/README.md) |
 | **LangGraph** | Python adapter | [`adapters/README.md`](adapters/README.md) |
 | **CrewAI** | Python adapter | [`adapters/README.md`](adapters/README.md) |
 | **OpenAI Agents SDK** | Python adapter | [`adapters/README.md`](adapters/README.md) |
 | **Vercel AI SDK** | TS adapter | [`sdk-ts/`](sdk-ts/) |
 | **Claude Code, Cursor, and other coding clients** | CLI + hooks | see [Coding tools](#coding-tools) |
+
+The two DeepSeek Harness rows are alternatives, not layers. The native plugin
+recalls and retains on its own; the MCP bridge waits for the model to call a
+tool, which on most turns it does not. **Do not install both against the same
+store** — recall would fire twice and every turn would be ingested twice.
 
 Full index, including MCP tool schemas and adapter details: [`integrations/README.md`](integrations/README.md).
 
