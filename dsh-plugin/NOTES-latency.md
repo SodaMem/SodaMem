@@ -40,10 +40,21 @@ Daemon: `sodamem daemon ensure`, auth **enabled**, `--workers 1`, on
 
 ## Sequential — one client, 200 requests
 
-`node scripts/measure-context-latency.mjs 200`, with six store-relevant queries
-supplied via `SODAMEM_QUERIES` rather than the script's generic built-in set
-(the same kind of query set the concurrency probe uses; see
-`scripts/concurrency_probe.mjs`). `token_budget` 1200, one warm-up excluded.
+`node scripts/measure-context-latency.mjs 200`, with these six store-relevant
+queries supplied via `SODAMEM_QUERIES` (`|`-separated) rather than the script's
+generic built-in set:
+
+```
+where do I live?
+which airline did I fly to Boston?
+where do I work now?
+do I have a pet?
+what city did I move to?
+tell me about my flights
+```
+
+`token_budget` 1200, one warm-up request excluded. The concurrency probe uses
+the same six (the `QUERIES` array in `scripts/concurrency_probe.mjs`).
 
 | metric | ms |
 |---|---|
@@ -66,22 +77,34 @@ The sequential table describes one client. The real deployment is a dsh turn
 racing a Cursor hook and a Claude Code hook against the same single worker.
 Probe: `node scripts/concurrency_probe.mjs`, 5 rounds per level.
 
-| concurrency | p50 ms | p99 ms |
-|---|---|---|
-| 1 | 338.3 | 400.8 |
-| 2 | 491.1 | 532.4 |
-| 4 | 603.4 | 816.7 |
-| 8 | 1179.3 | 1379.1 |
+| concurrency | n | median ms | worst-of-n ms |
+|---|---|---|---|
+| 1 | 5 | 338.3 | 400.8 |
+| 2 | 10 | 491.1 | 532.4 |
+| 4 | 20 | 603.4 | 816.7 |
+| 8 | 40 | 1179.3 | 1379.1 |
 
 It queues, roughly linearly.
+
+### Caveat — the right-hand column is a maximum, not a p99
+
+The probe labels that column `p99`, and at these sample sizes that label is
+wrong. Its percentile helper resolves `p99` to
+`sorted[ceil(0.99 * n) - 1]`, which for n = 5, 10, 20, and 40 is `sorted[n-1]`
+— the **largest sample**, every time. So the concurrency-8 figure of 1379.1 ms
+is the worst of 40 requests, not a 99th percentile, and a single sample does
+not deserve to be quoted to a tenth of a millisecond.
+
+The column is relabelled here to say what the number actually is. The median
+column is a genuine (lower) median at every level and is unaffected.
 
 ### Caveat — do not read these as absolute milliseconds
 
 The probe's numbers run **higher** than the 200-iteration sequential harness at
-equivalent load: 338 ms at concurrency 1 against 182.6 ms sequential. That gap
-is measurement artifact, not a finding. Five rounds do not warm the BM25 index
-cache the way 200 sequential requests do, so the probe pays cold-cache cost
-throughout.
+equivalent load: 338 ms median at concurrency 1 against 182.6 ms sequential.
+That gap is measurement artifact, not a finding. Five rounds do not warm the
+BM25 index cache the way 200 sequential requests do, so the probe pays
+cold-cache cost throughout.
 
 The reliable output of the probe is the **shape** — near-linear queueing under
 concurrency. For absolute latency, use the sequential table.
@@ -95,11 +118,27 @@ numbers. Nothing here has been reproduced on a second machine.
 
 ## Operational consequence — state this plainly
 
-**At concurrency 8, p99 is 1379 ms, which is within 10% of the plugin's 1500 ms
-recall deadline.** Past that point recall starts missing its deadline.
+**At concurrency 8, the slowest of 40 requests took 1379 ms — inside 10% of the
+plugin's 1500 ms recall deadline.** Enough concurrent clients and recall starts
+missing that deadline.
 
-When it does, the plugin does the safe thing: it caches `''`, contributes no
-memory, and the turn proceeds normally. Nothing breaks and nothing blocks.
+How firm is that margin? Deliberately not very, and in the pessimistic
+direction. The 1379 ms is one worst-case sample out of 40, measured on a
+cold BM25 cache that the caveats above show reads high — the same probe
+overstates concurrency-1 latency by roughly 1.9x against the sequential
+harness. So "within 10% of the deadline" is a **conservative bound, not a
+precise measurement**: the real margin at concurrency 8 is very likely wider
+than 121 ms, and the median request at that level (1179 ms) still cleared the
+deadline. Treat it as "the ceiling is close enough to matter", not as "recall
+fails at 8 clients".
+
+What is *not* softened by any of that is the direction and the shape: latency
+grows near-linearly with concurrent clients, and the deadline is a fixed
+1500 ms. Somewhere in the region the probe is pointing at, recall starts
+dropping — the uncertainty is in exactly where, not in whether.
+
+When it does drop, the plugin does the safe thing: it caches `''`, contributes
+no memory, and the turn proceeds normally. Nothing breaks and nothing blocks.
 
 But **the failure is silent.** There is no error surfaced to the user and no
 degraded turn — memory simply, quietly, stops working under multi-client load.
