@@ -13,8 +13,8 @@
 import type { ContentBlock } from "@deepseek-ai/dsh-llm";
 import type { AssembleContext } from "@deepseek-ai/dsh-system-prompt";
 import type { RecallCache } from "./cache.js";
-import { createClient } from "./client.js";
-import { CONTEXT_NAME, RECALL_TIMEOUT_MS, type SodaMemConfig } from "./config.js";
+import { withSodaMem } from "./client.js";
+import { CONTEXT_NAME, MAX_QUERY_CHARS, RECALL_TIMEOUT_MS, type SodaMemConfig } from "./config.js";
 import { renderTextBlocks, sanitizeContextText } from "./messages.js";
 
 /** The subset of `ctx.logger` this plugin uses. */
@@ -39,7 +39,13 @@ export interface RecallDeps {
 
 /**
  * The query handed to `GET /v1/context`: the text of the messages entering
- * this step, in order.
+ * this step, in order, capped at {@link MAX_QUERY_CHARS}.
+ *
+ * The cap is not cosmetic. This goes into a `GET` query parameter, so a pasted
+ * file or a long stack trace would produce a multi-kilobyte URL and earn a 414
+ * or 431 — recall would silently die on exactly the content-heavy turns where
+ * memory is most useful. When the text overflows, the TAIL is kept: the most
+ * recent text is the closest thing to what the user just asked.
  */
 export function buildQuery(messages: RecallPayload["messages"]): string {
   const parts: string[] = [];
@@ -47,7 +53,9 @@ export function buildQuery(messages: RecallPayload["messages"]): string {
     const text = renderTextBlocks(message?.content);
     if (text) parts.push(text);
   }
-  return parts.join("\n").trim();
+  const query = parts.join("\n").trim();
+  if (query.length <= MAX_QUERY_CHARS) return query;
+  return query.slice(query.length - MAX_QUERY_CHARS).trim();
 }
 
 /**
@@ -72,17 +80,29 @@ export function createRecallListener(deps: RecallDeps) {
       // tool loop and steps 2..n carry no new user message. This is the single
       // biggest cost and latency lever, and it is not configurable.
       if (agentId && !cache.has(agentId, payload.turn)) {
+        // Claim the turn BEFORE anything else, unconditionally. Two reasons,
+        // both load-bearing:
+        //   - it retires the previous turn's entry, so turn N's evidence block
+        //     can never be injected during turn N+1. The batch entering a step
+        //     is legitimately empty sometimes (a tool loop needing another
+        //     request), and without this claim an empty batch would leave the
+        //     stale entry in place for the synchronous provider to serve;
+        //   - a concurrent step in the same turn cannot issue a second request,
+        //     and any failure below already reads as "no memory this turn".
+        cache.set(agentId, payload.turn, "");
         const query = buildQuery(payload.messages);
         if (query) {
-          // Claim the turn before awaiting, so a concurrent step cannot issue a
-          // second request, and so a failure below already reads as "no memory".
-          cache.set(agentId, payload.turn, "");
-          const client = createClient(config, RECALL_TIMEOUT_MS, payload.signal);
-          const response = await client.context({
-            user_id: config.userId,
-            query,
-            token_budget: config.tokenBudget,
-          });
+          const response = await withSodaMem(
+            config,
+            RECALL_TIMEOUT_MS,
+            payload.signal,
+            (client) =>
+              client.context({
+                user_id: config.userId,
+                query,
+                token_budget: config.tokenBudget,
+              })
+          );
           const text = typeof response?.text === "string" ? response.text : "";
           cache.set(agentId, payload.turn, sanitizeContextText(text));
         }

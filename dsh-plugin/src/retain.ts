@@ -9,7 +9,7 @@
  */
 import type { ContentBlock } from "@deepseek-ai/dsh-llm";
 import type { Message } from "sodamem";
-import { createClient } from "./client.js";
+import { withSodaMem } from "./client.js";
 import { RETAIN_TIMEOUT_MS, type SodaMemConfig } from "./config.js";
 import { renderTextBlocks } from "./messages.js";
 import type { PluginLogger } from "./recall.js";
@@ -100,12 +100,13 @@ export function createRetainListener(deps: RetainDeps) {
       const messages = collectTurnMessages(agent.session, payload.turn);
       if (messages.length === 0) return;
 
-      const client = createClient(config, RETAIN_TIMEOUT_MS, payload.signal);
-      await client.add({
-        user_id: config.userId,
-        session_id: agent.id,
-        messages,
-      });
+      await withSodaMem(config, RETAIN_TIMEOUT_MS, payload.signal, (client) =>
+        client.add({
+          user_id: config.userId,
+          session_id: agent.id,
+          messages,
+        })
+      );
     } catch (error) {
       logger.warn("sodamem retain failed; the closed turn was not ingested: %o", error);
     }

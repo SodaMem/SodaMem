@@ -65,6 +65,8 @@ Measured (milliseconds, wall clock around `fetch` + body read):
   retrieve.
 - The plugin is built so that being wrong here is cheap: exceeding 1500 ms
   caches `''`, the turn proceeds with no memory, and nothing blocks the user.
+  That bound covers the whole call, headers and body — see `withSodaMem()` in
+  `src/client.ts` for why the SDK's own `timeoutMs` does not.
 
 ## To close this properly
 

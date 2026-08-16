@@ -44,14 +44,26 @@ export const Config: Schemastery<Partial<SodaMemConfig>, SodaMemConfig> = z.obje
  * Recall sits on the synchronous path between the user pressing enter and the
  * first token. 1500 ms is the ceiling before a human notices added latency;
  * past it the turn proceeds with no memory rather than waiting.
+ *
+ * Enforced by `withSodaMem()` across the WHOLE call, headers and body — see
+ * the comment there for why the SDK's own `timeoutMs` is not sufficient.
  */
 export const RECALL_TIMEOUT_MS = 1500;
 
 /**
  * Retain runs after the turn has already produced its answer, so it can afford
- * more — but not unboundedly, because `agent/turn-stopping` is awaited.
+ * more — but not unboundedly, because `agent/turn-stopping` is awaited by the
+ * machine. Same whole-call enforcement as recall.
  */
 export const RETAIN_TIMEOUT_MS = 5000;
+
+/**
+ * Cap on the recall query. It travels as a `GET` query parameter, so an
+ * uncapped query (a pasted file, a long stack trace) becomes a multi-kilobyte
+ * URL and earns a 414/431 — killing recall on exactly the turns carrying the
+ * most content.
+ */
+export const MAX_QUERY_CHARS = 1024;
 
 /** Prompt-context registration name and order. */
 export const CONTEXT_NAME = "sodamem";
