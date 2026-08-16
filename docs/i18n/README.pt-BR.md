@@ -219,7 +219,7 @@ roda um organizador com LLM sobre o conjunto recuperado para perguntas como
 parâmetro, então a garantia zero-LLM via HTTP não pode ser revertida por um
 parâmetro de requisição.
 
-**SDKs** — TypeScript sobre HTTP ([`sdk-ts/`](https://github.com/SodaMem/SodaMem/tree/main/sdk-ts/), zero
+**SDKs** — TypeScript sobre HTTP ([`sdk-ts/`](../../sdk-ts/), zero
 dependências de runtime, ESM + CJS):
 
 ```bash

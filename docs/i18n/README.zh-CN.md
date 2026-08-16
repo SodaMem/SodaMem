@@ -218,7 +218,7 @@ npm i sodamem
 import { SodaMemClient } from "sodamem";
 
 const mem = new SodaMemClient({ baseUrl: "http://localhost:8000", apiKey: process.env.SODAMEM_API_KEY! });
-const block = await mem.context({ user_id: "u1", query: "what do they prefer?", token_budget: 1000 });
+const block = await mem.context({ user_id: "u1", query: "他偏好什么？", token_budget: 1000 });
 ```
 
 Python 直接用库本身——`import sodamem`，你已经在网络这一层之内了。

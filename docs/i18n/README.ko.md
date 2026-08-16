@@ -19,7 +19,7 @@
 [English](../../README.md) · [简体中文](README.zh-CN.md) · [日本語](README.ja.md) · **한국어** · [Français](README.fr.md) · [Español](README.es.md) · [Deutsch](README.de.md) · [Português](README.pt-BR.md)
 <!-- /langs -->
 
-[에이전트 연동](#에이전트-연동) · [벤치마크](#벤치마크) · [빠른 시작](#빠른-시작) · [왜 또 하나의 메모리 계층인가](#왜-또-하나의-메모리-계층인가) · [설치](#설치) · [어디서든 사용](#어디서든-사용) · [코딩 도구](#코딩-도구) · [셀프 호스팅](#셀프-호스팅)
+[에이전트 연동](#에이전트-연동) · [벤치마크](#벤치마크) · [빠른 시작](#빠른-시작) · [왜 또 하나의 메모리 계층인가](#왜-또-하나의-메모리-계층인가) · [설치](#설치) · [어디서든 사용](#어디서든-사용) · [코딩 도구](#코딩-도구) · [셀프 호스팅](#셀프-호스팅) · [문서](#문서)
 
 <img src="../assets/benchmark-cost-accuracy.webp" alt="Cost-accuracy trade-off on LongMemEval-S" width="760">
 
@@ -212,7 +212,7 @@ Python 에만 있는 예외는 `build_context(organizer=...)` 입니다 — "나
 organizer 를 돌립니다. `/v1/context` 는 이 옵션을 절대 받지 않으므로, HTTP
 위에서의 zero-LLM 보장은 요청 파라미터로 뒤집힐 수 없습니다.
 
-**SDK** — TypeScript 는 HTTP 로([`sdk-ts/`](https://github.com/SodaMem/SodaMem/tree/main/sdk-ts/), 런타임 의존성
+**SDK** — TypeScript 는 HTTP 로([`sdk-ts/`](../../sdk-ts/), 런타임 의존성
 0, ESM + CJS):
 
 ```bash
@@ -346,7 +346,6 @@ API 호출, 관리자 엔드포인트, 메트릭, 유지보수, 백업, 업그�
 
 | | |
 |---|---|
-| [코딩 도구 연동](#코딩-도구) | Claude Code, Cursor 등 MCP 클라이언트 |
 | [벤치마크 방법](../../benchmarking/README.md) | 벤치마크 숫자를 어떻게 냈는가 |
 
 ---

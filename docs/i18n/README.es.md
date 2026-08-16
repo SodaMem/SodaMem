@@ -216,7 +216,7 @@ preguntas como «enumera todo lo que sabes de mí» — `/v1/context` nunca acep
 uno, así que la garantía de cero LLM por HTTP no se puede desactivar con un
 parámetro de la petición.
 
-**SDKs** — TypeScript sobre HTTP ([`sdk-ts/`](https://github.com/SodaMem/SodaMem/tree/main/sdk-ts/), cero
+**SDKs** — TypeScript sobre HTTP ([`sdk-ts/`](../../sdk-ts/), cero
 dependencias en tiempo de ejecución, ESM + CJS):
 
 ```bash
@@ -227,7 +227,7 @@ npm i sodamem
 import { SodaMemClient } from "sodamem";
 
 const mem = new SodaMemClient({ baseUrl: "http://localhost:8000", apiKey: process.env.SODAMEM_API_KEY! });
-const block = await mem.context({ user_id: "u1", query: "what do they prefer?", token_budget: 1000 });
+const block = await mem.context({ user_id: "u1", query: "¿qué prefiere?", token_budget: 1000 });
 ```
 
 Python habla directamente con la biblioteca — `import sodamem` y ya estás
@@ -357,7 +357,6 @@ solo en inglés.
 
 | | |
 |---|---|
-| [Herramientas de codificación](#herramientas-de-codificación) | Claude Code, Cursor y otros clientes MCP |
 | [Método de benchmark](../../benchmarking/README.md) | cómo se produjeron las cifras de benchmark |
 
 ---

@@ -19,7 +19,7 @@ La plupart des systèmes de mémoire stockent ce que vous avez dit et s'arrêten
 [English](../../README.md) · [简体中文](README.zh-CN.md) · [日本語](README.ja.md) · [한국어](README.ko.md) · **Français** · [Español](README.es.md) · [Deutsch](README.de.md) · [Português](README.pt-BR.md)
 <!-- /langs -->
 
-[Intégrations agents](#intégrations-agents) · [Benchmark](#benchmark) · [Démarrage rapide](#démarrage-rapide) · [Pourquoi une couche mémoire de plus](#pourquoi-une-couche-mémoire-de-plus) · [Installation](#installation) · [Utilisable depuis n'importe où](#utilisable-depuis-nimporte-où) · [Outils de codage](#outils-de-codage) · [Auto-hébergement](#auto-hébergement)
+[Intégrations agents](#intégrations-agents) · [Benchmark](#benchmark) · [Démarrage rapide](#démarrage-rapide) · [Pourquoi une couche mémoire de plus](#pourquoi-une-couche-mémoire-de-plus) · [Installation](#installation) · [Utilisable depuis n'importe où](#utilisable-depuis-nimporte-où) · [Outils de codage](#outils-de-codage) · [Auto-hébergement](#auto-hébergement) · [Documentation](#documentation)
 
 <img src="../assets/benchmark-cost-accuracy.webp" alt="Cost-accuracy trade-off on LongMemEval-S" width="760">
 

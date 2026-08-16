@@ -19,7 +19,7 @@
 [English](../../README.md) · [简体中文](README.zh-CN.md) · **日本語** · [한국어](README.ko.md) · [Français](README.fr.md) · [Español](README.es.md) · [Deutsch](README.de.md) · [Português](README.pt-BR.md)
 <!-- /langs -->
 
-[エージェント連携](#エージェント連携) · [ベンチマーク](#ベンチマーク) · [クイックスタート](#クイックスタート) · [なぜもう一つメモリ層が要るのか](#なぜもう一つメモリ層が要るのか) · [インストール](#インストール) · [どこからでも使える](#どこからでも使える) · [コーディングツール](#コーディングツール) · [セルフホスト](#セルフホスト)
+[エージェント連携](#エージェント連携) · [ベンチマーク](#ベンチマーク) · [クイックスタート](#クイックスタート) · [なぜもう一つメモリ層が要るのか](#なぜもう一つメモリ層が要るのか) · [インストール](#インストール) · [どこからでも使える](#どこからでも使える) · [コーディングツール](#コーディングツール) · [セルフホスト](#セルフホスト) · [ドキュメント](#ドキュメント)
 
 <img src="../assets/benchmark-cost-accuracy.webp" alt="Cost-accuracy trade-off on LongMemEval-S" width="760">
 
@@ -223,7 +223,7 @@ npm i sodamem
 import { SodaMemClient } from "sodamem";
 
 const mem = new SodaMemClient({ baseUrl: "http://localhost:8000", apiKey: process.env.SODAMEM_API_KEY! });
-const block = await mem.context({ user_id: "u1", query: "what do they prefer?", token_budget: 1000 });
+const block = await mem.context({ user_id: "u1", query: "何を好む？", token_budget: 1000 });
 ```
 
 Python はライブラリを直接使います——`import sodamem` の
