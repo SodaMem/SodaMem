@@ -202,10 +202,26 @@ curl -H "Authorization: Bearer $KEY" -H "Content-Type: application/json" \
 ```
 
 `/v1/context` 和 `/v1/search` 都收 JSON body；`/v1/context` 同时支持
-用 query 参数发 GET——它本来就是一个纯读接口。
+用 query 参数发 GET——它本来就是一个纯读接口。唯一的 Python-only 例外是
+`build_context(organizer=...)`——它会在检索结果集上跑一个 LLM 驱动的
+organizer，用来回答"列出你知道的关于我的一切"这类问题；`/v1/context`
+从不接受这个参数，所以 HTTP 这一侧的零 LLM 保证不会被某个请求参数翻盘。
 
-**SDK** —— TypeScript 走 HTTP（[`sdk-ts/`](../../sdk-ts/)，零运行时依赖，
-ESM + CJS）。Python 直接用库本身——`import sodamem`，你已经在网络这一层之内了。
+**SDKs** —— TypeScript 走 HTTP（[`sdk-ts/`](../../sdk-ts/)，零运行时依赖，
+ESM + CJS）：
+
+```bash
+npm i sodamem
+```
+
+```typescript
+import { SodaMemClient } from "sodamem";
+
+const mem = new SodaMemClient({ baseUrl: "http://localhost:8000", apiKey: process.env.SODAMEM_API_KEY! });
+const block = await mem.context({ user_id: "u1", query: "what do they prefer?", token_budget: 1000 });
+```
+
+Python 直接用库本身——`import sodamem`，你已经在网络这一层之内了。
 
 **Agent 框架** —— LangGraph、CrewAI、OpenAI Agents SDK、Vercel AI SDK。
 作用域在构造工具时绑定，**绝不出现在模型看得到的 schema 里**：

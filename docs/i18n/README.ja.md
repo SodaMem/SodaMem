@@ -206,9 +206,27 @@ curl -H "Authorization: Bearer $KEY" -H "Content-Type: application/json" \
 
 `/v1/context` と `/v1/search` はどちらも JSON ボディを受けます。
 `/v1/context` は純粋な読み取りなので、クエリパラメータでの GET も通ります。
+唯一 Python 限定の例外が `build_context(organizer=...)` で、「自分について
+知っていることを全部挙げて」のような問いのために、取得した集合に対して
+LLM ベースのオーガナイザーを走らせます。`/v1/context` はこの引数を一切
+受け付けないので、HTTP 越しではゼロ LLM の保証をリクエストパラメータで
+覆すことはできません。
 
 **SDK** —— TypeScript は HTTP 経由（[`sdk-ts/`](../../sdk-ts/)、実行時依存
-ゼロ、ESM + CJS）。Python はライブラリを直接使います——`import sodamem` の
+ゼロ、ESM + CJS）：
+
+```bash
+npm i sodamem
+```
+
+```typescript
+import { SodaMemClient } from "sodamem";
+
+const mem = new SodaMemClient({ baseUrl: "http://localhost:8000", apiKey: process.env.SODAMEM_API_KEY! });
+const block = await mem.context({ user_id: "u1", query: "what do they prefer?", token_budget: 1000 });
+```
+
+Python はライブラリを直接使います——`import sodamem` の
 時点で、すでにネットワークの内側です。
 
 **エージェントフレームワーク** —— LangGraph、CrewAI、OpenAI Agents SDK、

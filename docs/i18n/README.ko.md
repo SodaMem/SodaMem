@@ -206,10 +206,27 @@ curl -H "Authorization: Bearer $KEY" -H "Content-Type: application/json" \
 ```
 
 `/v1/context` 와 `/v1/search` 는 모두 JSON 본문을 받습니다. `/v1/context` 는
-순수 읽기이므로 쿼리 파라미터를 쓰는 GET 도 그대로 받습니다.
+순수 읽기이므로 쿼리 파라미터를 쓰는 GET 도 그대로 받습니다. 유일하게
+Python 에만 있는 예외는 `build_context(organizer=...)` 입니다 — "나에 대해
+아는 걸 전부 나열해줘" 같은 질문을 위해 검색 결과 집합 위에 LLM 기반
+organizer 를 돌립니다. `/v1/context` 는 이 옵션을 절대 받지 않으므로, HTTP
+위에서의 zero-LLM 보장은 요청 파라미터로 뒤집힐 수 없습니다.
 
-**SDK** — TypeScript 는 HTTP 로([`sdk-ts/`](../../sdk-ts/), 런타임 의존성
-0, ESM + CJS). Python 은 라이브러리를 직접 씁니다 — `import sodamem` 하는
+**SDK** — TypeScript 는 HTTP 로([`sdk-ts/`](https://github.com/SodaMem/SodaMem/tree/main/sdk-ts/), 런타임 의존성
+0, ESM + CJS):
+
+```bash
+npm i sodamem
+```
+
+```typescript
+import { SodaMemClient } from "sodamem";
+
+const mem = new SodaMemClient({ baseUrl: "http://localhost:8000", apiKey: process.env.SODAMEM_API_KEY! });
+const block = await mem.context({ user_id: "u1", query: "무엇을 선호하지?", token_budget: 1000 });
+```
+
+Python 은 라이브러리를 직접 씁니다 — `import sodamem` 하는
 순간 이미 네트워크 안쪽입니다.
 
 **에이전트 프레임워크** — LangGraph, CrewAI, OpenAI Agents SDK, Vercel AI SDK.

@@ -209,11 +209,29 @@ curl -H "Authorization: Bearer $KEY" -H "Content-Type: application/json" \
 ```
 
 `/v1/context` y `/v1/search` aceptan cuerpo JSON; `/v1/context` responde
-además a un GET con parámetros de consulta, porque es una lectura pura.
+además a un GET con parámetros de consulta, porque es una lectura pura. La
+única excepción exclusiva de Python es `build_context(organizer=...)`, que
+ejecuta un organizador respaldado por LLM sobre el conjunto recuperado para
+preguntas como «enumera todo lo que sabes de mí» — `/v1/context` nunca acepta
+uno, así que la garantía de cero LLM por HTTP no se puede desactivar con un
+parámetro de la petición.
 
-**SDK** — TypeScript sobre HTTP ([`sdk-ts/`](../../sdk-ts/), cero
-dependencias en tiempo de ejecución, ESM + CJS). Python habla directamente
-con la biblioteca — `import sodamem` y ya estás por debajo de la red.
+**SDKs** — TypeScript sobre HTTP ([`sdk-ts/`](https://github.com/SodaMem/SodaMem/tree/main/sdk-ts/), cero
+dependencias en tiempo de ejecución, ESM + CJS):
+
+```bash
+npm i sodamem
+```
+
+```typescript
+import { SodaMemClient } from "sodamem";
+
+const mem = new SodaMemClient({ baseUrl: "http://localhost:8000", apiKey: process.env.SODAMEM_API_KEY! });
+const block = await mem.context({ user_id: "u1", query: "what do they prefer?", token_budget: 1000 });
+```
+
+Python habla directamente con la biblioteca — `import sodamem` y ya estás
+por debajo de la red.
 
 **Frameworks de agentes** — LangGraph, CrewAI, OpenAI Agents SDK, Vercel AI SDK.
 El ámbito se fija al construir las herramientas y **nunca aparece en el esquema
