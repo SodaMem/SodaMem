@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "sodamem"
-version = "0.1.0"
+version = "0.1.1"
 description = "Evidence-grounded temporal memory for AI agents"
 requires-python = ">=3.11"
 classifiers = [
