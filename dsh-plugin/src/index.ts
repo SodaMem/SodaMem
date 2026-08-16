@@ -22,12 +22,18 @@ import { createContextTextProvider, createRecallListener, type PluginLogger } fr
 import { createRetainListener } from "./retain.js";
 
 export { Config, type SodaMemConfig } from "./config.js";
-export { RECALL_TIMEOUT_MS, RETAIN_TIMEOUT_MS, CONTEXT_NAME, CONTEXT_ORDER } from "./config.js";
+export {
+  RECALL_TIMEOUT_MS,
+  RETAIN_TIMEOUT_MS,
+  MAX_QUERY_CHARS,
+  CONTEXT_NAME,
+  CONTEXT_ORDER,
+} from "./config.js";
 export { RecallCache, type RecallEntry } from "./cache.js";
 export { buildQuery, createContextTextProvider, createRecallListener } from "./recall.js";
 export { collectTurnMessages, createRetainListener } from "./retain.js";
 export { renderTextBlocks, sanitizeContextText } from "./messages.js";
-export { createClient } from "./client.js";
+export { createClient, withSodaMem, SodaMemDeadlineError } from "./client.js";
 
 export const name = "sodamem";
 

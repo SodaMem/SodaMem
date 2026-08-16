@@ -88,7 +88,42 @@ export function installUnreachableFetch(): FetchDouble {
   );
 }
 
-/** A fetch that never settles until its request is aborted. */
+/**
+ * A fetch whose HEADERS arrive normally and whose BODY then stalls forever.
+ *
+ * This is the shape the SDK cannot bound on its own: it clears its deadline
+ * the moment headers land, so `response.text()` is awaited with no timer. Like
+ * undici, the body read here rejects when the request signal aborts.
+ */
+export function installStallingBodyFetch(): FetchDouble {
+  return installFetch((call) => ({
+    ok: true,
+    status: 200,
+    statusText: "",
+    text: () =>
+      new Promise<string>((_resolve, reject) => {
+        call.signal?.addEventListener("abort", () => {
+          reject(Object.assign(new Error("The operation was aborted"), { name: "AbortError" }));
+        });
+      }),
+  }));
+}
+
+/**
+ * A fetch whose body stalls forever and IGNORES the abort signal entirely —
+ * a transport that does not propagate cancellation into the body stream. The
+ * plugin's deadline must still end the wait.
+ */
+export function installUncancellableBodyFetch(): FetchDouble {
+  return installFetch(() => ({
+    ok: true,
+    status: 200,
+    statusText: "",
+    text: () => new Promise<string>(() => {}),
+  }));
+}
+
+/** A fetch that never settles until its request is aborted (headers phase). */
 export function installHangingFetch(): FetchDouble {
   return installFetch(
     (call) =>

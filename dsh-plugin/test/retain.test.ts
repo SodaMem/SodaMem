@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { apply, collectTurnMessages } from "../src/index.js";
 import {
   CONFIG,
@@ -6,6 +6,8 @@ import {
   createFakeContext,
   fakeSession,
   installAcceptedFetch,
+  installStallingBodyFetch,
+  installUncancellableBodyFetch,
   installUnreachableFetch,
   textBlocks,
   userMessage,
@@ -18,6 +20,7 @@ let fetchDouble: FetchDouble | undefined;
 afterEach(() => {
   fetchDouble?.restore();
   fetchDouble = undefined;
+  vi.useRealTimers();
 });
 
 function turnStopping(fake: ReturnType<typeof createFakeContext>) {
@@ -124,5 +127,49 @@ describe("retain", () => {
     ).resolves.toBeUndefined();
 
     expect(fake.logs.some((entry) => entry.level === "warn")).toBe(true);
+  });
+
+  it("stalled response BODY: the 5000ms deadline ends the wait, so turn-stopping cannot hang the machine", async () => {
+    vi.useFakeTimers();
+    fetchDouble = installStallingBodyFetch();
+    const fake = createFakeContext();
+    apply(fake.ctx, CONFIG);
+
+    let settled = false;
+    const pending = turnStopping(fake)({
+      agent: { id: "session-42", session: fakeSession(closedTurnEvents()) },
+      turn: 1,
+      signal: new AbortController().signal,
+    }).then(() => {
+      settled = true;
+    });
+
+    await vi.advanceTimersByTimeAsync(4999);
+    expect(settled).toBe(false);
+
+    await vi.advanceTimersByTimeAsync(1);
+    await pending;
+
+    expect(settled).toBe(true);
+    expect(fetchDouble.calls[0]!.signal?.aborted).toBe(true);
+    const error = fake.logs.find((entry) => entry.level === "warn")!.args[1] as Error;
+    expect(error.name).toBe("SodaMemDeadlineError");
+    expect(error.message).toContain("5000ms");
+  });
+
+  it("stalled body on a transport that ignores the signal: the deadline still ends the wait", async () => {
+    vi.useFakeTimers();
+    fetchDouble = installUncancellableBodyFetch();
+    const fake = createFakeContext();
+    apply(fake.ctx, CONFIG);
+
+    const pending = turnStopping(fake)({
+      agent: { id: "session-42", session: fakeSession(closedTurnEvents()) },
+      turn: 1,
+      signal: new AbortController().signal,
+    });
+
+    await vi.advanceTimersByTimeAsync(5000);
+    await expect(pending).resolves.toBeUndefined();
   });
 });

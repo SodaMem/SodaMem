@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { apply, buildQuery, sanitizeContextText } from "../src/index.js";
+import { MAX_QUERY_CHARS, apply, buildQuery, sanitizeContextText } from "../src/index.js";
 import {
   CONFIG,
   contributedText,
@@ -7,6 +7,8 @@ import {
   installContextFetch,
   installFetch,
   installHangingFetch,
+  installStallingBodyFetch,
+  installUncancellableBodyFetch,
   installUnreachableFetch,
   textBlocks,
   type FetchDouble,
@@ -154,8 +156,103 @@ describe("recall", () => {
     const warned = fake.logs.find((entry) => entry.level === "warn");
     expect(warned).toBeDefined();
     const error = warned!.args[1] as Error;
-    expect(error.name).toBe("SodaMemTimeoutError");
+    expect(error.name).toBe("SodaMemDeadlineError");
     expect(error.message).toContain("1500ms");
+  });
+
+  it("stalled response BODY: the 1500ms deadline still ends the wait", async () => {
+    // The SDK clears its own deadline the moment headers arrive, so this is
+    // the case its `timeoutMs` cannot bound. Without a plugin-owned deadline
+    // that stays armed across the body read, the turn hangs here.
+    vi.useFakeTimers();
+    fetchDouble = installStallingBodyFetch();
+    const fake = createFakeContext();
+    apply(fake.ctx, CONFIG);
+
+    const next = vi.fn(async () => ENTER);
+    const pending = preStep(fake)(payload("agent-a", 1, "anything"), next);
+
+    await vi.advanceTimersByTimeAsync(1499);
+    expect(next).not.toHaveBeenCalled();
+
+    await vi.advanceTimersByTimeAsync(1);
+    await pending;
+
+    expect(next).toHaveBeenCalledTimes(1);
+    expect(contributedText(fake, "agent-a")).toBe("");
+    // The deadline reached the transport too, so the socket is released.
+    expect(fetchDouble.calls[0]!.signal?.aborted).toBe(true);
+    const error = fake.logs.find((entry) => entry.level === "warn")!.args[1] as Error;
+    expect(error.name).toBe("SodaMemDeadlineError");
+    expect(error.message).toContain("1500ms");
+  });
+
+  it("stalled body on a transport that ignores the signal: the deadline still ends the wait", async () => {
+    vi.useFakeTimers();
+    fetchDouble = installUncancellableBodyFetch();
+    const fake = createFakeContext();
+    apply(fake.ctx, CONFIG);
+
+    const next = vi.fn(async () => ENTER);
+    const pending = preStep(fake)(payload("agent-a", 1, "anything"), next);
+
+    await vi.advanceTimersByTimeAsync(1500);
+    await pending;
+
+    expect(next).toHaveBeenCalledTimes(1);
+    expect(contributedText(fake, "agent-a")).toBe("");
+  });
+
+  it("does not carry turn N's memory into turn N+1 when the next batch is empty", async () => {
+    // dsh-agent legitimately enters a step with an empty message batch (a tool
+    // loop needing another request). The provider must contribute nothing for
+    // the new turn rather than replay the previous turn's evidence block.
+    fetchDouble = installContextFetch("turn 1 evidence");
+    const fake = createFakeContext();
+    apply(fake.ctx, CONFIG);
+    const handler = preStep(fake);
+
+    await handler(payload("agent-a", 1, "remember this"), async () => ENTER);
+    expect(contributedText(fake, "agent-a")).toBe("turn 1 evidence");
+
+    await handler(
+      {
+        agent: { id: "agent-a" },
+        messages: [],
+        turn: 2,
+        step: 1,
+        signal: new AbortController().signal,
+      },
+      async () => ENTER
+    );
+
+    expect(contributedText(fake, "agent-a")).toBe("");
+    expect(fetchDouble.calls).toHaveLength(1);
+  });
+
+  it("caps the query so a pasted file cannot produce a 414-length URL", async () => {
+    fetchDouble = installContextFetch("remembered");
+    const fake = createFakeContext();
+    apply(fake.ctx, CONFIG);
+
+    const pasted = "x".repeat(50_000);
+    await preStep(fake)(
+      payload("agent-a", 1, `${pasted}\nso what did we decide?`),
+      async () => ENTER
+    );
+
+    const query = new URL(fetchDouble.calls[0]!.url).searchParams.get("query")!;
+    expect(query.length).toBeLessThanOrEqual(MAX_QUERY_CHARS);
+    // The tail is kept: the most recent text is closest to what was just asked.
+    expect(query.endsWith("so what did we decide?")).toBe(true);
+    expect(fetchDouble.calls[0]!.url.length).toBeLessThan(8000);
+  });
+
+  it("buildQuery keeps the tail when the text overflows the cap", () => {
+    const query = buildQuery([{ content: textBlocks("A".repeat(MAX_QUERY_CHARS) + "TAIL") }]);
+    expect(query).toHaveLength(MAX_QUERY_CHARS);
+    expect(query.endsWith("TAIL")).toBe(true);
+    expect(buildQuery([{ content: textBlocks("short") }])).toBe("short");
   });
 
   it("cache isolation: two agent ids get their own text and neither reads the other's", async () => {
