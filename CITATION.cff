@@ -7,7 +7,7 @@ authors:
     given-names: FENGRONG
 repository-code: "https://github.com/SodaMem/SodaMem"
 license: Apache-2.0
-version: 0.1.0
+version: 0.1.1
 abstract: >-
   SodaMem is a memory layer for AI agents in which every stored fact keeps a
   foreign-key chain back to the conversation turn that produced it, and carries

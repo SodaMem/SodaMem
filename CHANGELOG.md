@@ -11,6 +11,8 @@ bottom.
 
 ## [Unreleased]
 
+## [0.1.1] — 2026-08-17
+
 ### Fixed
 
 - **Tool timeout** — `MemoryTool.dispatch`'s 45s timeout guard no longer leaves a
@@ -87,5 +89,6 @@ actually commits to before 1.0:
 - **`search` and `build_context` will not start calling an LLM.** If that ever
   changes it will be a new function, not new behaviour in these.
 
-[Unreleased]: https://github.com/SodaMem/SodaMem/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/SodaMem/SodaMem/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/SodaMem/SodaMem/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/SodaMem/SodaMem/releases/tag/v0.1.0

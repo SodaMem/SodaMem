@@ -15,7 +15,7 @@ if TYPE_CHECKING:
     from sodamem.memory.storage.store import Store
 
 
-__version__ = "0.1.0"
+__version__ = "0.1.1"
 
 
 @dataclass
