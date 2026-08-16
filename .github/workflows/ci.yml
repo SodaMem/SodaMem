@@ -69,3 +69,25 @@ jobs:
       - run: npm ci
       - run: npm test
       - run: npm run build
+
+  dsh-plugin:
+    # The DeepSeek Harness plugin puts SodaMem on the per-turn path, so a
+    # broken build is a broken turn for anyone who installed it. Same shape as
+    # sdk-ts, plus an explicit `typecheck`: the plugin codes against dsh's rc
+    # `.d.ts` files, and an rc that moves a payload field is exactly the break
+    # vitest cannot see.
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: dsh-plugin
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: dsh-plugin/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
