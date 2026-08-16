@@ -171,27 +171,6 @@ def search(query: str, *, user_id: str, store: Store,
     else:
         bundle = _retrieve_fusion_audit_bundle(query, user_id=user_id, store=store,
                                                 config=config, degraded=degraded)
-    if config.audit_enabled:
-        try:
-            store.persist_audit_bundle(
-                user_id,
-                query,
-                bundle.to_dict(),
-                audit=True,
-                retention_cap=config.audit_retention_per_user,
-            )
-        except Exception as exc:
-            logger.warning(
-                "retrieval audit persistence degraded for user %s: %s",
-                user_id,
-                exc,
-                exc_info=True,
-            )
-            degraded.append(Degradation(
-                code=DegradationCode.AUDIT_PERSIST_FAILED,
-                message="retrieval evidence is available, but its audit bundle was not persisted",
-                details={"error_type": type(exc).__name__, "error": str(exc)},
-            ))
     evidence = bundle.eligible_evidence
     wanted = active_scope(agent_id, run_id, project_id)
     if wanted:

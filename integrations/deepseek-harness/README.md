@@ -5,7 +5,7 @@ Connect SodaMem memory to [DeepSeek Harness](https://github.com/deepseek-ai/deep
 - Platforms: Windows / macOS / Linux
 - Transport: MCP (stdio); tool names look like `mcp__sodamem__*`
 
-Related guides: [Hermes](./HERMES_INTEGRATION.md) · [Generic MCP](./mcp_server/README.md)
+Related guides: [Hermes](../hermes/README.md) · [Generic MCP](../../mcp_server/README.md)
 
 ---
 
@@ -41,7 +41,7 @@ For a single Harness client, you may skip the daemon and use the local configura
 
 ### 3. Configure DeepSeek Harness
 
-Repository example: [`examples/sodamem-dsh.patch.yml`](./examples/sodamem-dsh.patch.yml)
+Repository example: [`sodamem-dsh.patch.yml`](./sodamem-dsh.patch.yml)
 
 ```yaml
 - insert:
@@ -78,12 +78,12 @@ command: 'C:\\Users\\you\\miniconda3\\python.exe'
 args: ['C:\\Users\\you\\path\\to\\SodaMem\\scripts\\sodamem_mcp_warm.py']
 ```
 
-See [`scripts/sodamem_mcp_warm.py`](./scripts/sodamem_mcp_warm.py).
+See [`scripts/sodamem_mcp_warm.py`](../../scripts/sodamem_mcp_warm.py).
 
-Start Harness:
+Start Harness (from the repository root):
 
 ```bash
-npx @deepseek-ai/dsh web --patch ./examples/sodamem-dsh.patch.yml
+npx @deepseek-ai/dsh web --patch ./integrations/deepseek-harness/sodamem-dsh.patch.yml
 ```
 
 Configure the Harness main-model API key separately under **Settings → Models**.

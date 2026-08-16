@@ -14,12 +14,7 @@ Three riding-along fixes applied on port:
    accumulated facade) plus an optional `config: RetrievalConfig` (Task 6) —
    `config.search_route` is what used to be read from the env var at call
    time, now fixed at construction.
-2. `retrieve_auto`'s `question_date: str` parameter is renamed `as_of` and
-   retyped `datetime | None`, aligned with spec §6.1's `SodaMem.search(...,
-   as_of=...)` contract — `question_date` was LongMemEval vocabulary leaking
-   into the product signature (same species as the `answer_task` field I4
-   already dropped from `AnswerEvidenceBundle`).
-3. `_TOOL_REGISTRY`'s `path` field (e.g. `"POST /memory/tool/search"`) never
+2. `_TOOL_REGISTRY`'s `path` field (e.g. `"POST /memory/tool/search"`) never
    matched `http_server.py`'s real routes (mounted under `/memory/browser/*`)
    — a pre-existing dead field, deleted here rather than "corrected" to a
    Phase-4 route scheme that doesn't exist yet.
@@ -46,21 +41,6 @@ are ported into `tests/test_tools.py` instead, unchanged, per R15's
 "assertions don't move" rule. Swapping `_format_context` for `build_context()`
 is deliberately left as a TODO, not implemented, exactly as R15 decided.
 
-`retrieve_auto` is NOT a byte-exact port (flagged in the task report as a
-concern, not hidden here): the source method is a thin CLI-shape projector
-over `GraphMemoryClientV2.retrieve_for_answer`, which in turn built a full
-`AnswerEvidenceBundle` via `_project_answer_bundle`/`_select_answer_evidence`
-(client.py :823-914) — LongMemEval-shaped selection/reranking logic that (a)
-constructs an `answer_task` dict, a field I4 deliberately dropped from
-`AnswerEvidenceBundle` on port, and (b) was never itemized for porting by
-any part of this package (it lives outside `search.py`'s range
-and outside `tool.py`'s own line range). Porting it now would resurrect a
-field the migration explicitly killed. This port instead re-implements
-`retrieve_auto`'s observable contract (`{"memories": [...], "context": "...",
-"count": N}`) directly on top of `sodamem.memory.retrieval.search()`'s
-already-ranked evidence, using the same `_key_evidence_to_retrieve_item`
-projection the source used for its OUTPUT shape — the source's PRE-projection
-term-overlap reranking/selection step is what's missing, not the shape.
 """
 
 from __future__ import annotations
@@ -71,6 +51,7 @@ import logging
 import math
 import os
 import re
+import threading
 from datetime import datetime, time as datetime_time, timezone
 from typing import Any, Optional
 
@@ -316,8 +297,6 @@ _DISPATCH_TABLE = {
     "memory.browser.event-timeline": "event_timeline",
     "memory.browser.date-calc": "date_calc",
     "memory.browser.evidence-count": "evidence_count",
-    # Legacy fast-recall path used by `sodamem` CLI memory retrieve auto.
-    "memory.retrieve": "retrieve_auto",
 }
 
 
@@ -550,41 +529,47 @@ class MemoryTool:
             if dropped:
                 logger.info("tool %s: dropping unsupported args %s (source pydantic models ignored unknown fields)", name, dropped)
                 normalized = {k: v for k, v in normalized.items() if k in params}
-
-        # Wall-clock cap per tool call. event-timeline / evidence-count can
-        # otherwise stall indefinitely inside search on a few LongMemEval
-        # stores; the planner then never recovers and the question hits the
-        # outer HEARTBEAT/TIMEOUT. Soft rarely hits this because it issues
-        # fewer timeline/count tool calls.
-        #
-        # Do NOT use `with ThreadPoolExecutor(...)`: on timeout, leaving the
-        # context manager waits for the stuck worker to finish, which defeats
-        # the timeout. Shutdown without waiting so the caller can return.
+        # Tool-level timeout: a stuck backend call (e.g. a pathological
+        # timeline/count query against a huge store) must not hang the whole
+        # question. We cannot forcibly kill a running Python thread, so once
+        # the timeout fires we simply stop waiting and return control to the
+        # caller — the worker thread is abandoned, not stopped, and keeps
+        # running `method` to completion (or forever) in the background.
+        # That abandoned thread is spawned here as `daemon=True` rather than
+        # via `ThreadPoolExecutor` on purpose: ThreadPoolExecutor's worker
+        # threads are non-daemon and get joined by its `atexit` handler, so a
+        # single stuck call would keep the whole process alive past the
+        # timeout. A daemon thread carries no such join-on-exit obligation,
+        # so an abandoned worker can leak until the call finally returns, but
+        # it can never block interpreter shutdown.
         tool_timeout_s = float(os.environ.get("SODAMEM_TOOL_TIMEOUT_S", "45") or 45)
+
+        def _invoke() -> dict:
+            return method(**normalized)
+
         try:
             if tool_timeout_s > 0:
-                from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeout
+                outcome: dict[str, Any] = {}
 
-                pool = ThreadPoolExecutor(max_workers=1)
-                fut = pool.submit(method, **normalized)
-                try:
-                    return fut.result(timeout=tool_timeout_s)
-                except FuturesTimeout:
-                    fut.cancel()
-                    pool.shutdown(wait=False, cancel_futures=True)
+                def _run() -> None:
+                    try:
+                        outcome["value"] = _invoke()
+                    except BaseException as exc:  # re-raised on the caller thread below
+                        outcome["error"] = exc
+
+                worker = threading.Thread(target=_run, daemon=True)
+                worker.start()
+                worker.join(tool_timeout_s)
+                if worker.is_alive():
                     raise ToolError(
                         "backend_timeout",
                         f"{name} exceeded {tool_timeout_s:.0f}s — try a narrower query",
                         status=504,
                     )
-                finally:
-                    # Best-effort: if the future already finished, wait=False
-                    # still returns immediately. Avoid double-shutdown.
-                    try:
-                        pool.shutdown(wait=False, cancel_futures=True)
-                    except Exception:
-                        pass
-            return method(**normalized)
+                if "error" in outcome:
+                    raise outcome["error"]
+                return outcome["value"]
+            return _invoke()
         except ToolError:
             raise
         except TypeError as exc:
@@ -1186,46 +1171,6 @@ class MemoryTool:
         except ToolError:
             return None
 
-    def retrieve_auto(
-        self,
-        query: str,
-        *,
-        top_k: int = 5,
-        as_of: datetime | None = None,
-    ) -> dict:
-        """Fast-recall path used by `sodamem` CLI memory retrieve auto.
-
-        Projects already-ranked search evidence to the existing CLI retrieve.ts
-        output shape. See module docstring for why this is NOT a byte-exact
-        port of the source's `retrieve_for_answer`-backed implementation — the
-        source's selection/reranking step (`_select_answer_evidence`) is not
-        ported (out of scope, and dependent on the `answer_task` field I4
-        deliberately dropped); this method instead takes the top `top_k` items
-        directly off `retrieval.search()`'s own ranking. `as_of`, when given,
-        is forwarded to `search()` as-is — which currently always raises
-        NotImplementedError for a non-None `as_of` (§6.7: no silent no-op).
-        """
-        if not query:
-            raise ToolError("invalid_request", "query is required")
-        # Matches the source's retrieve_for_answer, which always called
-        # retrieve_wide_audit_bundle (never fusion).
-        retrieve_config = dataclasses.replace(self._config, search_route="wide")
-        result = _search_evidence(
-            query, user_id=self._user_id, store=self._store,
-            config=retrieve_config, as_of=as_of, limit=max(top_k * 4, 80),
-        )
-        _log_degraded("retrieve_auto", result.degraded)
-        evidence = result.evidence[:top_k]
-        memories = [self._key_evidence_to_retrieve_item(ev) for ev in evidence]
-        return {
-            "memories": memories,
-            "context": "\n\n".join(ev.get("support_text") or "" for ev in evidence if ev.get("support_text")),
-            "count": len(memories),
-            "degraded": [_degradation_to_dict(d) for d in result.degraded],
-        }
-
-    # ---------------- projection helpers ----------------
-
     def _evidence_to_card(self, ev: dict) -> dict:
         support = ev.get("support_text") or ""
         return {
@@ -1518,12 +1463,7 @@ def _parse_iso_date(value) -> datetime:
     # an int/float ts is a raw epoch produced by the naive-local encoder, and
     # a string like "2023-06-15" already IS local-midnight in that encoding.
     if isinstance(value, (int, float)):
-        from sodamem.memory._shared import _safe_fromtimestamp
-
-        dt = _safe_fromtimestamp(value)
-        if dt is None:
-            raise ValueError(f"unrecognized date: {value!r}")
-        return dt
+        return datetime.fromtimestamp(float(value))
     s = str(value).strip()
     if _ISO_DATE.match(s):
         return datetime.fromisoformat(s[:10])

@@ -42,6 +42,12 @@ jobs:
     runs-on: ubuntu-latest
     environment: release
     permissions:
+      # A `permissions:` block REPLACES the defaults, it does not extend
+      # them. Declaring only id-token dropped `contents: read`, and
+      # actions/checkout then failed with "Repository not found" — invisible
+      # on a public repo, where an anonymous clone works anyway, and fatal on
+      # a private one. This release runs BEFORE the repository goes public,
+      # so both have to be named.
       contents: read
       # OIDC trusted publishing. No PyPI API token lives in repo secrets: a
       # stored token is a standing credential that can publish any version at
@@ -54,6 +60,11 @@ jobs:
       - run: uv build
       # `twine check` catches a malformed README before PyPI renders it as a
       # wall of raw markup on the page every launch visitor lands on.
+      #
+      # `uv venv` first: `uv build` needs no environment, but `uv pip install`
+      # does — without it this step dies with "No virtual environment found"
+      # AFTER the wheel is already built, which reads like a packaging failure
+      # and is not one.
       - run: uv venv && uv pip install twine && uv run twine check dist/*
       - uses: pypa/gh-action-pypi-publish@release/v1
 
@@ -62,6 +73,8 @@ jobs:
     runs-on: ubuntu-latest
     environment: release
     permissions:
+      # Same as the pypi job: the block replaces the defaults, so `contents`
+      # has to be named or checkout cannot read a private repository.
       contents: read
       id-token: write
     defaults:

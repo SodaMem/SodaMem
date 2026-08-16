@@ -1,8 +1,8 @@
 # DeepSeek Harness (dsh) Cordis patch — SodaMem MCP (remote).
-# Usage: npx @deepseek-ai/dsh web --patch ./examples/sodamem-dsh.patch.yml
+# Usage: npx @deepseek-ai/dsh web --patch ./integrations/deepseek-harness/sodamem-dsh.patch.yml
 # First run: sodamem daemon ensure
 # Put SODAMEM_LLM_* and SODAMEM_MCP_ALLOW_WRITE=1 on the daemon env / .env.
-# Guide: ../DEEPSEEK_HARNESS_INTEGRATION.md
+# Guide: ./README.md
 
 - insert:
     - id: mcp-sodamem

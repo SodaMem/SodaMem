@@ -1,9 +1,10 @@
-from sodamem.models import AnswerEvidenceBundle, fact_search_document
+from sodamem.models import fact_search_document
 
-
-def test_answer_evidence_bundle_has_no_answer_task_field():
-    field_names = set(getattr(AnswerEvidenceBundle, "model_fields", {}) or getattr(AnswerEvidenceBundle, "__dataclass_fields__", {}))
-    assert "answer_task" not in field_names
+# `test_answer_evidence_bundle_has_no_answer_task_field` lived here until 0806.
+# It pinned that one field stayed absent from a dataclass whose only producer
+# (`context.cards.project_answer_bundle`) had no callers — the model and the
+# projection are both gone now, and a test that a deleted field is missing
+# from a deleted class asserts nothing.
 
 
 def test_fact_search_document_is_pure_function():

@@ -653,47 +653,11 @@ def test_reader_retries_terse_when_first_answer_is_truncated():
     assert "cut off before finishing" in provider.calls[-1]["messages"][0]["content"]
 
 
-def test_reader_currency_off_keeps_both_values():
-    evidence = _currency_fixture()
-    provider = ScriptedProvider([_NO_ORGANIZER_PLAN])
-
-    context = assemble_reader_context(
-        evidence, ["ev_fact:f_old", "ev_fact:f_new"], "What time do I wake up on Saturdays?",
-        current_date="2023-06-15", provider=provider,
-        config=ReaderConfig(currency=False, full_pool=False, drop_external=False),
-    )
-
-    texts = " ".join(r.get("support_text", "") for r in context.key_evidence)
-    assert "7:30" in texts and "8:30" in texts
-
-
-def test_reader_currency_on_current_intent_collapses_to_latest():
-    evidence = _currency_fixture()
-    provider = ScriptedProvider([_NO_ORGANIZER_PLAN])
-
-    context = assemble_reader_context(
-        evidence, ["ev_fact:f_old", "ev_fact:f_new"], "What time do I wake up now?",
-        current_date="2023-06-15", provider=provider,
-        config=ReaderConfig(currency=True, full_pool=False, drop_external=False),
-    )
-
-    texts = " ".join(r.get("support_text", "") for r in context.key_evidence)
-    assert "7:30" in texts
-    assert "8:30" not in texts
-
-
-def test_reader_currency_on_history_intent_is_skipped():
-    evidence = _currency_fixture()
-    provider = ScriptedProvider([_NO_ORGANIZER_PLAN])
-
-    context = assemble_reader_context(
-        evidence, ["ev_fact:f_old", "ev_fact:f_new"], "What time did I used to wake up before?",
-        current_date="2023-06-15", provider=provider,
-        config=ReaderConfig(currency=True, full_pool=False, drop_external=False),
-    )
-
-    texts = " ".join(r.get("support_text", "") for r in context.key_evidence)
-    assert "7:30" in texts and "8:30" in texts
+# The three `test_reader_currency_*` tests lived here until 0806. They set
+# `ReaderConfig(currency=...)`, and they were the ONLY setters of that field
+# anywhere — no product entry point, no benchmark arm. The field, its
+# `_HISTORY_INTENT_RE` gate and `_apply_currency` are all gone; a test for a
+# behaviour nobody could switch on was testing the test.
 
 
 def _currency_fixture() -> EvidenceStore:

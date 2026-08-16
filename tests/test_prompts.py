@@ -14,7 +14,7 @@ instead.
 """
 import pytest
 
-from sodamem.prompts.extraction import COARSE_RULES, DETERMINISM_RULES, EXTRACT_SYSTEM_PROMPT
+from sodamem.prompts.extraction import DETERMINISM_RULES, EXTRACT_SYSTEM_PROMPT
 from sodamem.prompts.planner import PLANNER_SYSTEM_PROMPT, QUERY_PLAN_PROMPT, TOOL_GUIDE
 from sodamem.prompts.reader import (
     DEFAULT_ANSWER_CONSTRAINTS,
@@ -27,7 +27,7 @@ from sodamem.prompts.reader_con import OFFICIAL_CON_PROMPT_TEMPLATE
 
 
 @pytest.mark.parametrize("value", [
-    EXTRACT_SYSTEM_PROMPT, DETERMINISM_RULES, COARSE_RULES,
+    EXTRACT_SYSTEM_PROMPT, DETERMINISM_RULES,
     QUERY_PLAN_PROMPT, PLANNER_SYSTEM_PROMPT,
     READER_GUIDANCE, OFFICIAL_CON_PROMPT_TEMPLATE,
 ])

@@ -22,12 +22,8 @@ from server.settings import Settings
 ROOT = Path(__file__).resolve().parent.parent
 
 
-def _read_text(path: Path) -> str:
-    return path.read_text(encoding="utf-8")
-
-
 def _project_metadata() -> dict:
-    return tomllib.loads(_read_text(ROOT / "pyproject.toml"))
+    return tomllib.loads((ROOT / "pyproject.toml").read_text())
 
 
 def test_mcp_extra_is_bounded_to_supported_major_and_lock_matches():
@@ -37,7 +33,7 @@ def test_mcp_extra_is_bounded_to_supported_major_and_lock_matches():
         "sodamem[server]",
     ]
 
-    lock = tomllib.loads(_read_text(ROOT / "uv.lock"))
+    lock = tomllib.loads((ROOT / "uv.lock").read_text())
     locked_mcp = next(package for package in lock["package"] if package["name"] == "mcp")
     assert locked_mcp["version"].split(".", 1)[0] == "1"
 
@@ -54,7 +50,7 @@ def test_ci_full_suite_installs_every_imported_optional_surface():
     `pytest.importorskip`, so a missing extra does not fail CI — it turns the
     tests into skips and CI stays green while nothing ran.
     """
-    workflow = _read_text(ROOT / ".github/workflows/ci.yml")
+    workflow = (ROOT / ".github/workflows/ci.yml").read_text()
     installed = set()
     for line in workflow.splitlines():
         marker = 'uv pip install -e ".['
@@ -77,9 +73,7 @@ def test_setuptools_discovers_only_the_product_package_roots():
     behind it."""
     metadata = _project_metadata()
     include = metadata["tool"]["setuptools"]["packages"]["find"]["include"]
-    assert include == [
-        "sodamem*", "sodamem_cli*", "sodamem_opt*", "mcp_server*", "server*", "adapters*"
-    ]
+    assert include == ["sodamem*", "sodamem_cli*", "mcp_server*", "server*", "adapters*"]
 
     packages = {
         ".".join(path.relative_to(ROOT).parent.parts)
@@ -89,7 +83,7 @@ def test_setuptools_discovers_only_the_product_package_roots():
             for pattern in include
         )
     }
-    assert {"sodamem", "sodamem_cli", "sodamem_opt", "mcp_server", "server", "server.routes",
+    assert {"sodamem", "sodamem_cli", "mcp_server", "server", "server.routes",
             "adapters"} <= packages
     assert not any(
         package == excluded or package.startswith(f"{excluded}.")
@@ -129,7 +123,7 @@ def test_built_archives_exclude_test_and_benchmark_payload(tmp_path):
 
 
 def test_docker_builder_copies_all_packaged_sources_before_frozen_sync():
-    dockerfile = _read_text(ROOT / "Dockerfile")
+    dockerfile = (ROOT / "Dockerfile").read_text()
     sync_position = dockerfile.index("RUN uv sync --frozen --no-dev --no-editable")
     for source in ("sodamem", "mcp_server", "server"):
         assert dockerfile.index(f"COPY {source} ./{source}") < sync_position
@@ -140,7 +134,7 @@ def test_docker_builder_copies_all_packaged_sources_before_frozen_sync():
 
 
 def test_compose_env_file_is_optional_without_auth_bypass_or_default_key():
-    compose = _read_text(ROOT / "docker-compose.yml")
+    compose = (ROOT / "docker-compose.yml").read_text()
     assert re.search(
         r"(?m)^    env_file:\n      - path: \.env\n        required: false$",
         compose,
@@ -183,14 +177,14 @@ def test_project_metadata_carries_links_and_classifiers():
 def test_release_workflow_exists_and_is_tag_triggered():
     wf = ROOT / ".github" / "workflows" / "release.yml"
     assert wf.exists(), "no release workflow — nothing publishes the package"
-    text = _read_text(wf)
+    text = wf.read_text()
     assert "tags:" in text, "release must be driven by a version tag, not a branch push"
 
 
 def test_release_workflow_runs_the_suite_before_publishing():
     """Publishing is irreversible: a version number on PyPI can be yanked but
     never reused. Tests must gate the upload, not run beside it."""
-    text = _read_text(ROOT / ".github" / "workflows" / "release.yml")
+    text = (ROOT / ".github" / "workflows" / "release.yml").read_text()
     assert "pytest" in text, "release publishes without running tests"
     assert "needs:" in text, "publish job does not depend on the test job"
 
@@ -199,7 +193,7 @@ def test_release_workflow_uses_trusted_publishing_not_a_long_lived_token():
     """An API token in repo secrets is a standing credential that can publish
     any version at any time. OIDC trusted publishing is scoped to this
     workflow on this repo and expires in minutes."""
-    text = _read_text(ROOT / ".github" / "workflows" / "release.yml")
+    text = (ROOT / ".github" / "workflows" / "release.yml").read_text()
     assert "id-token: write" in text, "no OIDC permission — falls back to a stored token"
     assert "PYPI_API_TOKEN" not in text, "long-lived PyPI token referenced"
 
@@ -208,7 +202,7 @@ def test_version_is_single_sourced_between_python_and_npm():
     """Two version numbers that can disagree WILL disagree. A user reporting
     'sodamem 0.2.1' must mean one thing."""
     py = _project_metadata()["project"]["version"]
-    npm = json.loads(_read_text(ROOT / "sdk-ts" / "package.json"))["version"]
+    npm = json.loads((ROOT / "sdk-ts" / "package.json").read_text())["version"]
     assert py == npm, f"pyproject {py} != sdk-ts/package.json {npm}"
 
 
@@ -217,13 +211,13 @@ def test_both_packages_carry_the_notice_and_name_the_same_owner():
     carry a readable copy of it. The npm tarball is such a distribution, and
     its `files` allowlist means anything not named there is silently absent.
     """
-    root_notice = _read_text(ROOT / "NOTICE")
+    root_notice = (ROOT / "NOTICE").read_text()
     assert "FENGRONG WAN" in root_notice
     sdk_notice = ROOT / "sdk-ts" / "NOTICE"
     assert sdk_notice.exists(), "npm package has no NOTICE"
-    assert _read_text(sdk_notice) == root_notice, "the two NOTICE files disagree"
+    assert sdk_notice.read_text() == root_notice, "the two NOTICE files disagree"
 
-    pkg = json.loads(_read_text(ROOT / "sdk-ts" / "package.json"))
+    pkg = json.loads((ROOT / "sdk-ts" / "package.json").read_text())
     assert "NOTICE" in pkg.get("files", []), "NOTICE is not in the npm files allowlist"
     assert pkg.get("license") == "Apache-2.0"
     assert pkg.get("author"), "npm package names no author"
@@ -249,7 +243,7 @@ def test_no_dangling_references_to_predecessor_repositories():
         for path in (ROOT / sub).rglob("*.py"):
             if path.resolve() == Path(__file__).resolve():
                 continue  # this file names the patterns in order to forbid them
-            for i, line in enumerate(_read_text(path).splitlines(), 1):
+            for i, line in enumerate(path.read_text().splitlines(), 1):
                 if dangling.search(line):
                     hits.append(f"{path.relative_to(ROOT)}:{i}")
     assert not hits, "dangling references to a private predecessor: " + ", ".join(hits[:10])

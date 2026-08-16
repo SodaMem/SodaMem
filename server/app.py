@@ -172,8 +172,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         code = {
             400: "bad_request", 401: "unauthorized", 403: "forbidden",
             404: "not_found", 405: "method_not_allowed", 409: "conflict",
-            422: "unprocessable",
-            501: "not_implemented", 503: "service_unavailable",
+            422: "unprocessable", 501: "not_implemented",
+            503: "service_unavailable",
         }.get(exc.status_code, "http_error")
         return JSONResponse(
             status_code=exc.status_code,

@@ -15,7 +15,7 @@ Structurally enforced by import-linter's `retrieval-no-llm` contract
 from __future__ import annotations
 
 from .config import Degradation, DegradationCode, FusionConfig, RetrievalConfig
-from .query_plan import QueryPlan, temporal_match
+from .query_plan import QueryPlan
 from .search import SearchResult, search
 
 __all__ = [
@@ -26,5 +26,4 @@ __all__ = [
     "RetrievalConfig",
     "FusionConfig",
     "QueryPlan",
-    "temporal_match",
 ]

@@ -1,22 +1,97 @@
 <div align="center">
 
-# SodaMem
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../assets/logo-dark.webp">
+  <img src="../assets/logo.webp" alt="SodaMem" width="260">
+</picture>
 
-**AI エージェントのための、証拠を辿れる時間軸つきメモリ層。**
+**AI エージェントのための、自己進化するエージェント型メモリ層。**
 
-すべての記憶が「どの発話から生まれたか」を示し、「いつ真でなくなったか」を知っています。
+多くのメモリシステムは「何を言ったか」を保存して終わりです——今日は正しくても、状況が変わった瞬間に黙って古くなります。SodaMem はエージェントと一緒に進化します。事実は上書きされず後継に置き換わり、エンティティプロファイルは静かに古びていく代わりに必要なときに再構築され、どの答えもそれを生んだ発話まで辿れます。想起にかかる LLM 呼び出しはゼロ——同じ質問には毎回同じ答えが返ります。
 
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](../../LICENSE)
 [![Python](https://img.shields.io/badge/python-3.11%2B-blue.svg)](../../pyproject.toml)
-[![LongMemEval](https://img.shields.io/badge/LongMemEval--S-93.6%25-brightgreen.svg)](../../benchmarking/protocol_v1.0/)
+[![LongMemEval](https://img.shields.io/badge/LongMemEval-92.8%25-brightgreen.svg)](../../benchmarking/artifacts/)
+[![LoCoMo](https://img.shields.io/badge/LoCoMo-86.88%25-brightgreen.svg)](../../benchmarking/README.md#locomo-cat-1-4)
+[![Discussions](https://img.shields.io/github/discussions/SodaMem/SodaMem?logo=github&label=discussions)](https://github.com/SodaMem/SodaMem/discussions)
 
 <!-- langs -->
 [English](../../README.md) · [简体中文](README.zh-CN.md) · **日本語** · [한국어](README.ko.md) · [Français](README.fr.md) · [Español](README.es.md) · [Deutsch](README.de.md) · [Português](README.pt-BR.md)
 <!-- /langs -->
 
+[エージェント連携](#エージェント連携) · [ベンチマーク](#ベンチマーク) · [クイックスタート](#クイックスタート) · [なぜもう一つメモリ層が要るのか](#なぜもう一つメモリ層が要るのか) · [インストール](#インストール) · [どこからでも使える](#どこからでも使える) · [コーディングツール](#コーディングツール) · [セルフホスト](#セルフホスト) · [ドキュメント](#ドキュメント)
+
+<img src="../assets/benchmark-cost-accuracy.webp" alt="Cost-accuracy trade-off on LongMemEval-S" width="760">
+
+*縦軸は正確度、横軸は 1 問あたりの推定 API コスト。意味があるのは左上の象限です。*
+
 </div>
 
 ---
+
+## エージェント連携
+
+| ランタイム | 方式 | ガイド |
+|---|---|---|
+| **Hermes Agent** | MCP | [`integrations/hermes/README.md`](../../integrations/hermes/README.md) |
+| **DeepSeek Harness** | MCP | [`integrations/deepseek-harness/README.md`](../../integrations/deepseek-harness/README.md) |
+| **汎用 / 任意の MCP クライアント** | MCP | [`mcp_server/README.md`](../../mcp_server/README.md) |
+| **LangGraph** | Python アダプタ | [`adapters/README.md`](../../adapters/README.md) |
+| **CrewAI** | Python アダプタ | [`adapters/README.md`](../../adapters/README.md) |
+| **OpenAI Agents SDK** | Python アダプタ | [`adapters/README.md`](../../adapters/README.md) |
+| **Vercel AI SDK** | TS アダプタ | [`sdk-ts/`](../../sdk-ts/) |
+| **Claude Code、Cursor などのコーディングクライアント** | CLI + フック | [コーディングツール](#コーディングツール)を参照 |
+
+MCP ツールのスキーマやアダプタの詳細を含む完全な索引：[`integrations/README.md`](../../integrations/README.md)。
+
+---
+
+## ベンチマーク
+
+<div align="center">
+  <img src="../assets/benchmark-longmemeval.webp" alt="LongMemEval: SodaMem 92.8%, Hindsight 91.4%, Mem0 OSS 91.0%" width="720">
+</div>
+
+LongMemEval **92.8%（464/500）**。
+
+| | |
+|---|---|
+| reader / planner / judge | `deepseek-v4-flash` |
+| 判定プロンプト | LongMemEval 公式 `evaluate_qa.py` のテンプレート、バイト単位で同一 |
+| ストア | `longmemeval_s_500_Hobs_entitysubj`、500 ユーザー / 235,840 ファクト |
+
+**回答も、取得した記憶も、すべて公開しています**
+（[`benchmarking/artifacts/`](../../benchmarking/artifacts/)）——500 件の回答
+全文と 8,427 件の証拠。任意の judge で採点し直すことも、取得コンテキストを
+自前の reader に渡して数字がどう動くか確かめることもできます。どちらも当方の
+サービスへのアクセスは不要です。
+
+<div align="center">
+  <img src="../assets/benchmark-locomo.webp" alt="LoCoMo: SodaMem 86.88%, MemMachine 91.69%, Hindsight 89.61%, MIRIX 85.38%, Memobase 75.78%, Mem0 OSS 66.88%" width="720">
+</div>
+
+LoCoMo **86.88%（1338/1540）**。エンドツーエンドの QA 正解率、
+判定は LLM-as-judge。
+
+| | |
+|---|---|
+| reader / planner / judge | `deepseek-v4-flash` |
+| 判定プロンプト | LongMemEval 公式のテンプレート、バイト単位で複製 |
+| ストア | `locomo10_Hobs`、10 ユーザーストア / 2,905 ファクトイベント |
+| コード | プレリリースビルド —— 公開履歴は v0.1.0 から始まります |
+
+**LoCoMo については問題ごとの成果物を一切公開していません** —— 回答も、取得
+コンテキストも、run ディレクトリもありません。公開しているのは
+[`benchmarking/README.md` の LoCoMo セクション](../../benchmarking/README.md#locomo-cat-1-4)
+です。カテゴリ別の内訳、会話ごとの分布、provenance と再現手順が載っています。
+
+---
+
+## クイックスタート
+
+ここでは Python の道筋を説明します。エージェントフレームワークや MCP クライアントへの組み込みは[エージェント連携](#エージェント連携)へ、TypeScript/Node から呼び出す場合は[どこからでも使える](#どこからでも使える)へ、共有サービスとして動かす場合は[セルフホスト](#セルフホスト)へどうぞ。
+
+### 例
 
 ```bash
 pip install "sodamem[chroma,llm]"
@@ -24,10 +99,9 @@ pip install "sodamem[chroma,llm]"
 
 ```python
 from sodamem import SodaMem
-from sodamem.llm import create_provider_from_env      # SODAMEM_LLM_API_KEY
+from sodamem.llm import create_provider_from_env      # SODAMEM_LLM_API_KEY など
 from sodamem.memory.ingest.extractor import FactEventExtractorV2
 
-# 書き込みには事実を抽出するモデルが要る。読み出しには一切不要。
 mem = SodaMem.open("./data", extractor=FactEventExtractorV2(create_provider_from_env()))
 
 mem.ingest(
@@ -56,6 +130,18 @@ print(block.citations)   # その一行一行の根拠
 多くのメモリシステムが保存するのは「何を言ったか」です。実際に破綻を招くのは
 **それがいつ真でなくなったか**と**どこから来たか**——この二つはデータモデルで
 解く問題であり、ベクトルインデックスを大きくしても解決しません。
+
+
+| 問い | よくある答え | SodaMem |
+|---|---|---|
+| この記憶はどこから来たのか？ | 類似度スコアと、いくつかのメタデータ | `FactEvent → SourceSpan → RawTurn` の外部キー連鎖が、まさにその発話まで辿れる |
+| ユーザーが前言を撤回したら？ | 上書きし、古い値は消える | 追加のみ、加えて `SUPERSEDES` エッジ。旧版は `valid_until` で閉じ、読める状態で残る |
+| 「去年シカゴに引っ越した」と「来年引っ越す」 | タイムスタンプ一つ | 四つの時間軸：発生 / 有効 / 発話 / 保存 |
+| 検索 1 回のコストは？ | 検索のたびに LLM 呼び出し | `build_context` はモデル呼び出し **ゼロ**、引用つきの完成プロンプトを返す |
+| 同じクエリを二度投げたら同じ答えか？ | モデルのサンプリング次第 | 決定的な融合：同じストア、同じクエリ、同じ結果 |
+| なぜ X を忘れたのか？ | 答えようがない | `/v1/events` が追加・上書き・削除をすべて理由つきで記録 |
+
+このうち二つだけ、もう少し詳しく見る価値があります——残りは表がすでに答えています。
 
 ### すべての記憶が証拠を携える
 
@@ -86,52 +172,6 @@ date         = 2023-05-25
 タイムスタンプが一つでは「去年シカゴに**引っ越した**」と「来年シカゴに
 **引っ越す**」を区別できず、すでに真でなくなった事実も表現できません。
 
-訂正は **ADD-only** です。新しいバージョンと `SUPERSEDES` エッジを足すだけで、
-その場で書き換えません。`PATCH /v1/memories/{id}` は旧バージョンに
-`valid_until` を付けて閉じ、**読める状態のまま残します**——ここが `DELETE`
-との決定的な違いです。
-
-### 二段の検索、しかも安い方が本当に無料
-
-| 段 | LLM 呼び出し | 用途 |
-|---|---|---|
-| `search` / `build_context` | **ゼロ** | 既定の経路：BM25＋ベクトル＋エンティティの決定的融合 |
-| `answer` | プランナーループ | トークンを払う価値のある多段推論 |
-
-`build_context` は**引用つきで、そのままプロンプトに入るテキスト**を返し、
-モデルを一度も呼びません。多くのシステムはレコードの一覧を返すだけで、
-組み立てもトークン配分も重複除去も利用者任せです。
-
-中間の第三の段もあります：`build_context(organizer=...)` は検索結果の上で
-LLM オーガナイザ（value-board / enumeration-sweep）を走らせ、「知っている X を
-全部挙げて」のような問いに答えます。意図的に Python 側だけの機能です——
-`/v1/context` は organizer を決して受け取らないので、あのルートのゼロ LLM
-保証をリクエストパラメータでひっくり返すことはできません。
-
-### 検索結果は監査できる
-
-同じクエリ、同じストアなら結果は毎回同じです。`/v1/events` が追加・置換・削除
-とその理由をすべて記録するので、「なぜエージェントは X を忘れたのか」は後から
-辿れます。
-
----
-
-## ベンチマーク
-
-LongMemEval-S **93.6%（468/500）** — **Typed Answer Schema（TAS）** headline。公開 artifact は **92.8%（464/500）**。
-
-| | |
-|---|---|
-| reader / planner / judge | `deepseek-v4-flash` |
-| 判定プロンプト | LongMemEval 公式 `evaluate_qa.py` のテンプレート、バイト単位で同一 |
-| ストア | `longmemeval_s_500_Hobs_entitysubj`、500 ユーザー / 235,840 ファクト |
-
-**回答も、取得した記憶も、すべて公開しています**
-（[`benchmarking/artifacts/`](../../benchmarking/artifacts/)）——500 件の回答
-全文と 8,427 件の証拠。任意の judge で採点し直すことも、取得コンテキストを
-自前の reader に渡して数字がどう動くか確かめることもできます。どちらも当方の
-サービスへのアクセスは不要です。
-
 ---
 
 ## インストール
@@ -150,11 +190,6 @@ base は `pydantic`、`numpy`、`rank-bm25`、`python-dateutil` だけを引き�
 このリストがうっかり伸びたらビルドが落ちる CI ゲートを置いています。
 
 
-PyPI にはまだありません。最初のタグ公開まではソースから：
-
-```bash
-pip install "git+https://github.com/xlows1206/SodaMem#egg=sodamem[chroma,llm]"
-```
 
 ---
 
@@ -171,9 +206,27 @@ curl -H "Authorization: Bearer $KEY" -H "Content-Type: application/json" \
 
 `/v1/context` と `/v1/search` はどちらも JSON ボディを受けます。
 `/v1/context` は純粋な読み取りなので、クエリパラメータでの GET も通ります。
+唯一 Python 限定の例外が `build_context(organizer=...)` で、「自分について
+知っていることを全部挙げて」のような問いのために、取得した集合に対して
+LLM ベースのオーガナイザーを走らせます。`/v1/context` はこの引数を一切
+受け付けないので、HTTP 越しではゼロ LLM の保証をリクエストパラメータで
+覆すことはできません。
 
 **SDK** —— TypeScript は HTTP 経由（[`sdk-ts/`](../../sdk-ts/)、実行時依存
-ゼロ、ESM + CJS）。Python はライブラリを直接使います——`import sodamem` の
+ゼロ、ESM + CJS）：
+
+```bash
+npm i sodamem
+```
+
+```typescript
+import { SodaMemClient } from "sodamem";
+
+const mem = new SodaMemClient({ baseUrl: "http://localhost:8000", apiKey: process.env.SODAMEM_API_KEY! });
+const block = await mem.context({ user_id: "u1", query: "何を好む？", token_budget: 1000 });
+```
+
+Python はライブラリを直接使います——`import sodamem` の
 時点で、すでにネットワークの内側です。
 
 **エージェントフレームワーク** —— LangGraph、CrewAI、OpenAI Agents SDK、
@@ -192,31 +245,103 @@ Vercel AI SDK。スコープはツール構築時に束縛し、**モデルが�
 
 ---
 
+## コーディングツール
+
+**ステップ 1.** デーモンを起動する —— ストアを所有する唯一のプロセス：
+
+```
+sodamem daemon ensure
+```
+
+**ステップ 2.** クライアントをそこに接続する：
+
+```
+sodamem install claude-code
+```
+
+どのクライアントも MCP ツールサーフェスは使えます。うち 4 つはさらに**フック**
+を備えていて、モデルがツール呼び出しを決断しなくても記憶の想起・保持が
+行われます——コーディングセッション中はファイルを読むのに忙しく、モデルは
+たいていそれを決断しないからです。
+
+フックにできることは環境ごとに異なります——フックの仕組み自体が違うからです。
+各クライアントが実際にサポートするものは次の通りで、`sodamem clients` も
+同じ内容を表示します。
+
+| クライアント | 想起 | 保持 |
+|---|---|---|
+| Claude Code | プロンプトのたび | すべてのターン + セッション終了時 |
+| GitHub Copilot CLI | プロンプトのたび | すべてのターン |
+| Cursor | セッション開始時（プロジェクトの要約） | — |
+| Codex CLI | セッション開始時（プロジェクトの要約） | — |
+| Claude Desktop、VS Code、Windsurf、Zed、OpenCode | MCP ツールのみ | MCP ツールのみ |
+
+Cursor の `beforeSubmitPrompt` はプロンプトを読めても何かを注入することは
+できません（公式ドキュメントが挙げるのはそれができる 3 つのイベントで、
+これはそこに含まれません）。Cursor も Codex もフックにトランスクリプトの
+パスを渡さないため、保持フックが読めるものがそもそもありません。この 2 つは
+セッション開始時にプロジェクトの要約を受け取り、`add_memories` ツール経由で
+書き込みます。何もできないフックはインストールしません。
+
+実行前に知っておくべきことが 3 つあります。
+
+**デーモンは 1 つ、エディタは複数。** ユーザーごとのストアは WAL なしの
+SQLite なので、開けるプロセスは常に 1 つだけです（ADR 0001 §2）。そのため
+`install` は既定で、各クライアントに自前のプロセスを立ち上げさせるのではなく
+稼働中のサービスを指すよう設定します——意図的にローカルストア
+（`--local-store`）を選んだ場合は、2 つ目のクライアントは黙ってデータを
+壊す代わりに起動を拒否します。
+
+**記憶はリポジトリ単位でスコープされます。** `install` は git のルートから
+`project_id` を導出します（`git worktree` は親リポジトリに解決されるので、
+タスクごとにブランチを切っても記憶バンクが分かれるわけではありません）。
+これは分離ではなく絞り込みです——プロジェクト外で伝えた内容もすべての
+プロジェクトから見え続け、キーを外せば「あの別リポジトリでどう直したっけ」
+にも答えられます。
+
+**保持には抽出用の認証情報が要ります。** 想起は LLM 呼び出しゼロで、
+認証情報なしで動きます。事実の保存はそうはいきません。`sodamem daemon ensure`
+はこれを最初に伝えます——すべての書き込みを受け付けてからジョブが失敗する、
+という順序にはしません。
+
+```
+sodamem install claude-code --dry-run      # 変更内容を表示するだけ
+sodamem install cursor vscode zed          # まとめて複数指定
+sodamem daemon status                      # 実際に応答しているのはどれか
+```
+
+既存の設定はマージされ、置き換わりません——他の MCP サーバーや他の設定、
+手書きの TOML コメントもそのまま残ります。初めて書き込むファイルには必ず
+`.sodamem-backup` が添えられます。
+
+---
+
 ## セルフホスト
 
-```bash
+コマンド一つ：
+
+```
 cp .env.example .env      # SODAMEM_API_KEY を設定
 docker compose up -d
 ```
 
-認証は既定で有効。テナント分離は**物理的**です——`user_id` ごとに独立した
-SQLite ファイルとベクトルコレクションを持つため、「このユーザーを削除する」は
-ディレクトリを一つ消すことです。
+**認証は既定で有効。** `docker-compose.yml` は `SODAMEM_AUTH_DISABLED` を
+一切設定しません——`SODAMEM_API_KEY` が未設定だとサーバーは起動を拒否するため
+（`server/settings.py` 参照）、うっかり無防備なまま公開される事故は起きません。
+最初の `docker compose up` の前に `.env` でキーを設定してください。
 
-`/v1/admin/*` は本来コンテナに入らないと見えない情報を返します：実効設定
-（秘密情報は「設定済み／未設定」のみで、値は決して出力しない）、名前付き
-API キー、直近のリクエストログ、ディスクと負荷の状況。
+**ワーカーは必ず 1 つ。** `--workers 1` はスループットの設定ではなく、正しさ
+の制約です。ユーザーごとのストアは WAL なしの SQLite データベースで、2 つの
+プロセスが同じユーザーのストアに書き込むと壊れます。同梱の `CMD` も明示的に
+これを指定しており、サーバーはデータルートに対して起動時に排他ロックを
+取得します——同じディレクトリを指す 2 つ目のプロセスは、データを黙って壊す
+代わりに `data_root_locked` で起動を拒否します。水平スケールにはまず外部の
+ジョブストアが必要です（`docs/adr/0001-control-plane-db.md`）。
 
-可観測性：`/v1/metrics`（レイテンシ分位）、`/v1/usage`（取り込みと回答に分けた
-トークン消費）、`/metrics`（Prometheus 形式）、`/v1/events`（記憶の全変更）、
-および送信 webhook（上限つきキュー、HMAC 署名、URL 未設定なら完全に無効）。
-
-エンティティプロファイルの再構築はオンデマンドで、タイマーではありません：
-`POST /v1/maintenance/dream`（冪等・再開可能・同時呼び出しは
-`already_running` を返す）。そのトークンをいつ使うかは配備側の判断なので、
-SodaMem 自身はスケジューラを持ちません。
-
-詳細は英語版 [Self-hosting](../../README.md#self-hosting) を参照してください。
+運用に関する完全なリファレンス——API の呼び出し方、管理者向けエンドポイント、
+メトリクス、メンテナンス、バックアップ、アップグレード——は
+[`docs/self-hosting.md`](../self-hosting.md) にまとまっています（現時点では
+英語版のみです）。
 
 ---
 
@@ -224,10 +349,13 @@ SodaMem 自身はスケジューラを持ちません。
 
 | | |
 |---|---|
-| [コーディングツール連携](../../README.md#coding-tools) | Claude Code、Cursor などの MCP クライアント |
-| [ベンチマーク手法](../../benchmarking/README.md) | LongMemEval の数字をどう出したか |
+| [ベンチマーク手法](../../benchmarking/README.md) | ベンチマークの数字をどう出したか |
 
 ---
+
+## 謝辞
+
+本プロジェクトの土台となった初期の作業に貢献してくださった [@sunjiajunsunjiajun](https://github.com/sunjiajunsunjiajun) and [@Lum1104](https://github.com/Lum1104) に感謝します。
 
 ## ライセンス
 

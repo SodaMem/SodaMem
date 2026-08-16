@@ -499,7 +499,9 @@ def test_no_v1_route_handler_is_a_coroutine_function():
     # rather than listed. The hand-written list this replaces named four
     # modules and missed `graph.py`, whose three handlers were `async def`
     # with no `await` in them — blocking store I/O on the loop, which is the
-    # exact thing this test exists to forbid.
+    # exact thing this test exists to forbid, sitting one import away from
+    # the test that forbids it. A guard whose scope is maintained by hand
+    # protects whatever someone last remembered to add.
     import importlib
     import inspect
     import pkgutil
@@ -1018,8 +1020,6 @@ def test_dream_refuses_scope_keys_rather_than_ignoring_them(client):
     be silently dropped, which is the failure mode this project refuses."""
     r = client.post("/v1/maintenance/dream", json={"user_id": "u1", "agent_id": "a1"})
     assert r.status_code == 501, r.text
-
-
 # ---------------------------------------------------------------------------
 # Every error, one envelope — including the two nobody raises by hand
 # ---------------------------------------------------------------------------
