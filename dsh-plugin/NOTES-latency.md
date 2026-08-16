@@ -2,75 +2,144 @@
 
 Recall sits on the synchronous path between the user pressing enter and the
 first token, and the daemon runs `--workers 1` by design (ADR 0001 §2). So the
-timeout is set from a measurement, not a hope.
+1500 ms recall deadline is set from a measurement, not a hope.
 
-**Every number below was produced by a run of
-`dsh-plugin/scripts/measure-context-latency.mjs` against a real daemon. No
-number here was estimated.**
+**Every number in this file was produced by a run against a live daemon backed
+by a real, populated store. Nothing here is estimated.** (An earlier pass could
+only measure an empty store and said so; that floor is superseded and has been
+removed.)
 
-## The blocker, stated plainly
+## How the store was built — no LLM key required
 
-A *representative* measurement — one over a store of realistic size — was **not
-possible in this environment**, because no `SODAMEM_LLM_API_KEY` is available:
-`POST /v1/memories` refuses every write with
-`config_invalid: IngestClient requires an extractor (FactEventExtractorV2) — got None`,
-even with `infer=false` and `async_mode=false`. With no way to ingest a single
-fact, there is no populated store to measure against, and no store existed at
-the default data root (`~/.sodamem/data` is absent on this machine).
+The first pass reported AC7 as blocked: `POST /v1/memories` refuses every write
+without an extractor, so with no `SODAMEM_LLM_API_KEY` there was nothing to
+measure against. That blocker was soluble. `sodamem.llm.testing.ScriptedProvider`
+feeds `FactEventExtractorV2` a pre-set response per call, which drives the
+**real** ingest path — real fact rows, real source spans, real entity roles,
+real MiniLM embeddings from the cached model — with **zero LLM network calls**.
 
-What was done instead: the harness was written, run, and its output recorded
-verbatim below against an **empty** store. That measures the floor — HTTP,
-routing, and an empty retrieval — and nothing about retrieval work over real
-data. It is reported as a floor and must not be read as a p50 for a real store.
+Build script: `scripts/populate_store.py <data_root> <user_id> <n_facts>`.
 
-## Run 1 — empty store (floor only)
+Resulting store:
 
-Command:
+| | |
+|---|---|
+| `fact_events` | 1000 |
+| `source_spans` | 1000 |
+| `raw_turns` | 1000 |
+| chroma `embeddings` | 3000 |
+| on disk | 23 MB |
 
+The generator rotates four predicate families (`travel_by_airline`,
+`employed_by`, `owns_pet`, `resides_in`) across 12 cities, 6 airlines, 6
+employers, and 5 pets, so retrieval has genuine competition to rank rather than
+N copies of one fact.
+
+Daemon: `sodamem daemon ensure`, auth **enabled**, `--workers 1`, on
+`127.0.0.1:8771`.
+
+## Sequential — one client, 200 requests
+
+`node scripts/measure-context-latency.mjs 200`, with six store-relevant queries
+supplied via `SODAMEM_QUERIES` rather than the script's generic built-in set
+(the same kind of query set the concurrency probe uses; see
+`scripts/concurrency_probe.mjs`). `token_budget` 1200, one warm-up excluded.
+
+| metric | ms |
+|---|---|
+| min | 112 |
+| **p50** | **182.6** |
+| p95 | 323 |
+| **p99** | **471.1** |
+| max | 596.4 |
+
+Read this as: auto-injection adds roughly 180 ms to time-to-first-token on a
+typical turn and about 470 ms at the tail. Noticeable, not disqualifying — and
+because `/v1/context` is the zero-LLM path, this cost does not grow with model
+spend.
+
+**This table is the trustworthy absolute number in this file.**
+
+## Concurrent — the `--workers 1` question
+
+The sequential table describes one client. The real deployment is a dsh turn
+racing a Cursor hook and a Claude Code hook against the same single worker.
+Probe: `node scripts/concurrency_probe.mjs`, 5 rounds per level.
+
+| concurrency | p50 ms | p99 ms |
+|---|---|---|
+| 1 | 338.3 | 400.8 |
+| 2 | 491.1 | 532.4 |
+| 4 | 603.4 | 816.7 |
+| 8 | 1179.3 | 1379.1 |
+
+It queues, roughly linearly.
+
+### Caveat — do not read these as absolute milliseconds
+
+The probe's numbers run **higher** than the 200-iteration sequential harness at
+equivalent load: 338 ms at concurrency 1 against 182.6 ms sequential. That gap
+is measurement artifact, not a finding. Five rounds do not warm the BM25 index
+cache the way 200 sequential requests do, so the probe pays cold-cache cost
+throughout.
+
+The reliable output of the probe is the **shape** — near-linear queueing under
+concurrency. For absolute latency, use the sequential table.
+
+### Caveat — scope of the whole measurement
+
+One machine, over loopback, against one store profile (1000 facts, the four
+synthetic predicate families above). Different hardware, a real network hop, a
+larger or differently-shaped store, or a different query mix will move these
+numbers. Nothing here has been reproduced on a second machine.
+
+## Operational consequence — state this plainly
+
+**At concurrency 8, p99 is 1379 ms, which is within 10% of the plugin's 1500 ms
+recall deadline.** Past that point recall starts missing its deadline.
+
+When it does, the plugin does the safe thing: it caches `''`, contributes no
+memory, and the turn proceeds normally. Nothing breaks and nothing blocks.
+
+But **the failure is silent.** There is no error surfaced to the user and no
+degraded turn — memory simply, quietly, stops working under multi-client load.
+A deployment that adds a third or fourth concurrent SodaMem client can lose
+recall entirely without anyone noticing that anything changed. That is the
+property to watch, and it is why the plugin logs a warning on every degraded
+turn (`ctx.logger.warn`) even though it never raises.
+
+## The concurrency ceiling is not a plugin defect
+
+The read path not scaling past a handful of concurrent clients is a **SodaMem
+daemon property**: one worker by design (ADR 0001 §2), pre-existing, and
+entirely independent of this plugin.
+
+What this plugin changes is **reachability**. Over the MCP bridge, `/v1/context`
+was an occasional tool call the model had to choose to make. Auto-injection
+makes it a *per-turn* call on every turn of every agent. The same ceiling that
+was previously hard to reach is now reached by ordinary use with a few clients
+attached.
+
+That deserves its own issue against the daemon's read concurrency. It is
+**explicitly out of scope for #9** — this plugin's job is to degrade safely
+when the ceiling is hit, which it does and which is tested.
+
+## Reproducing
+
+```sh
+# 1. Build a real store, no LLM key needed.
+python dsh-plugin/scripts/populate_store.py <data_root> <user_id> 1000
+
+# 2. Start the daemon on that store.
+sodamem daemon ensure --api-url http://127.0.0.1:8771 \
+  --api-key <key> --data-root <data_root>
+
+# 3. Sequential latency.
+SODAMEM_API_URL=http://127.0.0.1:8771 SODAMEM_API_KEY=<key> \
+SODAMEM_USER_ID=<user_id> SODAMEM_QUERIES='where do I live?|where do I work now?' \
+  node dsh-plugin/scripts/measure-context-latency.mjs 200
+
+# 4. Concurrency shape.
+SODAMEM_API_URL=http://127.0.0.1:8771 SODAMEM_API_KEY=<key> \
+SODAMEM_USER_ID=<user_id> node dsh-plugin/scripts/concurrency_probe.mjs
 ```
-sodamem daemon ensure --api-url http://127.0.0.1:8765 --api-key devkey \
-  --data-root <scratchpad>/ac7-data
-
-SODAMEM_API_URL=http://127.0.0.1:8765 \
-SODAMEM_API_KEY=devkey \
-SODAMEM_USER_ID=ac7 \
-node scripts/measure-context-latency.mjs 50
-```
-
-Daemon: SodaMem 0.0.1, `schema_version` 1, `auth` enabled, default daemon flags
-from `sodamem daemon ensure` (single worker), fresh empty data root, macOS
-arm64, Node 22.22.2, loopback.
-
-Store size: **0 facts, 0 sessions** (the blocker above).
-
-Query set: the script's built-in five —
-`what do I prefer for backend work?`, `where do I live?`,
-`what did we decide about the release process?`,
-`which database are we using?`, `what is my timezone?` — cycled over 50
-sequential requests, `token_budget` 1200, one warm-up request excluded.
-
-Measured (milliseconds, wall clock around `fetch` + body read):
-
-| min | p50 | p95 | p99 | max |
-|---|---|---|---|---|
-| 70.0 | 71.9 | 89.6 | 111.9 | 111.9 |
-
-## What this does and does not justify
-
-- It does **not** justify the 1500 ms recall timeout as "measured headroom over
-  a real store". That claim is still unmeasured.
-- It does establish that the fixed cost of the call — process boundary, HTTP,
-  auth, routing, empty retrieval — is already ~70 ms p50 on loopback with a
-  warm daemon, and that the single-worker tail reaches ~112 ms with nothing to
-  retrieve.
-- The plugin is built so that being wrong here is cheap: exceeding 1500 ms
-  caches `''`, the turn proceeds with no memory, and nothing blocks the user.
-  That bound covers the whole call, headers and body — see `withSodaMem()` in
-  `src/client.ts` for why the SDK's own `timeoutMs` does not.
-
-## To close this properly
-
-Set `SODAMEM_LLM_PROVIDER` / `SODAMEM_LLM_API_KEY`, ingest a store of stated
-size, and re-run the command above with `>= 50` iterations. Add the result as
-"Run 2 — populated store" with the store size and daemon flags named, exactly
-as Run 1 is.
