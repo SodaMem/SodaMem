@@ -34,7 +34,7 @@ Most memory systems store what you said and stop there — correct today, silent
 | Runtime | How | Guide |
 |---|---|---|
 | **Hermes Agent** | MCP | [`integrations/hermes/README.md`](integrations/hermes/README.md) |
-| **DeepSeek Harness** | **native plugin — auto-injected every turn** *(recommended)* | [`dsh-plugin/`](dsh-plugin/) |
+| **DeepSeek Harness** | **native plugin — auto-injected every turn** *(recommended)* | ↗ separate repo: [`SodaMem/dsh-plugin-sodamem`](https://github.com/SodaMem/dsh-plugin-sodamem) |
 | **DeepSeek Harness** | MCP — tool-based, the model must choose to call it | [`integrations/deepseek-harness/README.md`](integrations/deepseek-harness/README.md) |
 | **Generic / any MCP client** | MCP | [`mcp_server/README.md`](mcp_server/README.md) |
 | **LangGraph** | Python adapter | [`adapters/README.md`](adapters/README.md) |
@@ -42,6 +42,12 @@ Most memory systems store what you said and stop there — correct today, silent
 | **OpenAI Agents SDK** | Python adapter | [`adapters/README.md`](adapters/README.md) |
 | **Vercel AI SDK** | TS adapter | [`sdk-ts/`](sdk-ts/) |
 | **Claude Code, Cursor, and other coding clients** | CLI + hooks | see [Coding tools](#coding-tools) |
+
+The native DeepSeek Harness plugin lives in **its own repository**,
+[`SodaMem/dsh-plugin-sodamem`](https://github.com/SodaMem/dsh-plugin-sodamem)
+(npm: `dsh-plugin-sodamem`) — it is not shipped from this tree. `dsh` is a
+developer preview with breaking changes, so the plugin tracks its release
+cadence rather than SodaMem's.
 
 The two DeepSeek Harness rows are alternatives, not layers. The native plugin
 recalls and retains on its own; the MCP bridge waits for the model to call a

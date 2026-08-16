@@ -22,9 +22,13 @@ runtime's turn lifecycle directly, so it contributes memory to the prompt itself
 and ingests closed turns on its own, instead of exposing tools and waiting to be
 called. It reaches the store over HTTP against a running `sodamem daemon`.
 
+These plugins are **maintained outside this repository**. `dsh` is a developer
+preview that still makes breaking changes; a separate repo lets the plugin
+follow that cadence without dragging SodaMem's releases along with it.
+
 | Runtime | Where |
 |---|---|
-| **DeepSeek Harness** (`dsh`) | [`../dsh-plugin/`](../dsh-plugin/) |
+| **DeepSeek Harness** (`dsh`) | ↗ separate repo: [`SodaMem/dsh-plugin-sodamem`](https://github.com/SodaMem/dsh-plugin-sodamem) — npm `dsh-plugin-sodamem` |
 
 ## MCP integrations
 
@@ -39,8 +43,8 @@ chooses to call one.
 | **Generic / any MCP client** | [`../mcp_server/README.md`](../mcp_server/README.md) |
 
 DeepSeek Harness appears in both sections, and the two are **alternatives, not
-layers**. The native plugin is the recommended path; the MCP bridge is the
-tool-based one. **Do not install both against the same store** — recall would
+layers**. The native plugin is the recommended path and lives in its own repo;
+the MCP bridge is the tool-based one and is documented here. **Do not install both against the same store** — recall would
 fire twice and every turn would be ingested twice.
 
 Also shipped: Claude Code / Cursor hooks via `sodamem install`.
