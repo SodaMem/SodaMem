@@ -11,6 +11,7 @@ prune console
 prune data
 prune dist
 prune docs
+prune dsh-plugin
 prune results
 prune scripts
 prune sdk-ts
