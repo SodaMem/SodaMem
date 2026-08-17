@@ -28,7 +28,12 @@ follow that cadence without dragging SodaMem's releases along with it.
 
 | Runtime | Where |
 |---|---|
-| **DeepSeek Harness** (`dsh`) | ↗ separate repo: [`SodaMem/dsh-plugin-sodamem`](https://github.com/SodaMem/dsh-plugin-sodamem) — npm `dsh-plugin-sodamem` |
+| **DeepSeek Harness** (`dsh`) | ↗ separate repo: [`SodaMem/dsh-plugin-sodamem`](https://github.com/SodaMem/dsh-plugin-sodamem) |
+
+```bash
+sodamem daemon ensure                              # this repo, once
+dsh plugin --profile tui add dsh-plugin-sodamem    # published on npm
+```
 
 ## MCP integrations
 

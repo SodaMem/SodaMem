@@ -45,9 +45,13 @@ Most memory systems store what you said and stop there — correct today, silent
 
 The native DeepSeek Harness plugin lives in **its own repository**,
 [`SodaMem/dsh-plugin-sodamem`](https://github.com/SodaMem/dsh-plugin-sodamem)
-(npm: `dsh-plugin-sodamem`) — it is not shipped from this tree. `dsh` is a
-developer preview with breaking changes, so the plugin tracks its release
-cadence rather than SodaMem's.
+— it is not shipped from this tree. `dsh` is a developer preview with breaking
+changes, so the plugin tracks its release cadence rather than SodaMem's.
+
+```bash
+sodamem daemon ensure                              # this repo, once
+dsh plugin --profile tui add dsh-plugin-sodamem    # published on npm
+```
 
 The two DeepSeek Harness rows are alternatives, not layers. The native plugin
 recalls and retains on its own; the MCP bridge waits for the model to call a
