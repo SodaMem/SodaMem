@@ -17,14 +17,14 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from sodamem import __version__
-from sodamem.errors import SodaMemError
+from sodamem.errors import ErrorCode, SodaMemError
 from sodamem.versioning import STORE_SCHEMA_VERSION
 from server.auth import current_caller
 from server.control import acquire_data_root_lock, get_control_plane
 from server.metrics import get_latency_registry, get_request_counter
 from server.models import ErrorBody, Health
 from server.settings import Settings, get_settings
-from server.stores import InvalidScopeError
+from server.stores import InvalidScopeError, StoreOpenError
 
 logger = logging.getLogger(__name__)
 
@@ -139,6 +139,22 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         return JSONResponse(
             status_code=400,
             content=ErrorBody(code="invalid_scope", message=str(exc)).model_dump(),
+        )
+
+    # Registered ALONGSIDE the SodaMemError handler below, not instead of it.
+    # Starlette resolves handlers by walking `type(exc).__mro__`, so the more
+    # specific StoreOpenError handler wins and the 400 branch is untouched.
+    # 503 rather than 400 because a store that will not open is a server-side
+    # resource being unavailable — the client did nothing wrong (same reading
+    # as /v1/answer's 503 when no provider is configured).
+    @app.exception_handler(StoreOpenError)
+    async def _store_open_error(_: Request, exc: StoreOpenError):
+        return JSONResponse(
+            status_code=503,
+            content=ErrorBody(
+                code=ErrorCode.VECTOR_STORE_UNAVAILABLE.value, message=str(exc),
+                details=dict(getattr(exc, "details", {}) or {}),
+            ).model_dump(),
         )
 
     @app.exception_handler(SodaMemError)
