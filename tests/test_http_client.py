@@ -108,6 +108,14 @@ def test_service_that_reads_then_closes_is_a_service_error():
         with pytest.raises(ServiceError) as caught:
             Client(url, timeout=5.0).health()
 
+        # Name the path, or the gate can go vacuous. Every exception the
+        # PRE-FIX code could turn into a `ServiceError` was an `HTTPError` or a
+        # `URLError`; asserting the cause is neither is what makes this a test
+        # of the new branch rather than a test that some error happened.
+        cause = caught.value.__cause__
+        assert isinstance(cause, http.client.RemoteDisconnected), cause
+        assert not isinstance(cause, urllib.error.URLError), cause
+
         # AC4: the sentence has to carry the three things a user acts on.
         message = str(caught.value)
         assert url in message
@@ -133,6 +141,16 @@ def test_service_that_closes_without_reading_is_a_service_error():
 
         with pytest.raises(ServiceError) as caught:
             Client(url, timeout=5.0).health()
+
+        # Without this, the test is satisfied by the OLD `URLError` branch: if
+        # the sleep above ever lost its race the client would fail while
+        # WRITING, urllib would wrap that into `URLError`, and this test would
+        # quietly start passing for a reason that predates the fix. Pinning the
+        # class is what keeps AC2 distinct from AC1 and from the status quo.
+        cause = caught.value.__cause__
+        assert isinstance(cause, ConnectionResetError), cause
+        assert not isinstance(cause, http.client.RemoteDisconnected), cause
+        assert not isinstance(cause, urllib.error.URLError), cause
         assert "`sodamem daemon ensure`" in str(caught.value)
 
         assert daemon.status(url)["running"] is False
@@ -185,3 +203,21 @@ def test_programming_errors_are_not_swallowed(monkeypatch):
     monkeypatch.setattr("urllib.request.urlopen", boom)
     with pytest.raises(AttributeError):
         Client("http://127.0.0.1:1", timeout=1.0).health()
+
+
+# --- the one `HTTPException` that is NOT "the service did not answer" -------
+
+def test_a_malformed_url_is_not_dressed_up_as_an_unreachable_service():
+    """`InvalidURL` is an `HTTPException`, so the new branch would have caught
+    it and told the user to run `sodamem daemon ensure` — a remedy that cannot
+    fix a typo in `SODAMEM_API_URL`.
+
+    It is also not a response-phase failure at all: it comes out of
+    `HTTPConnection.__init__`, before there is a socket. And a friendlier
+    message would not help, because `ensure()` goes on to call `_split()`,
+    where the same URL raises `ValueError: Port could not be cast to integer
+    value` regardless. So the behaviour is pinned to exactly what it was
+    before this change: the config error stays a config error.
+    """
+    with pytest.raises(http.client.InvalidURL):
+        Client("http://127.0.0.1:notaport", timeout=2.0).health()
