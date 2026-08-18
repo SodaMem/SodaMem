@@ -23,6 +23,7 @@ from sodamem.errors import ErrorCode, SodaMemError
 from sodamem.versioning import STORE_SCHEMA_VERSION
 from server.auth import current_caller
 from server.control import acquire_data_root_lock, get_control_plane
+from server.logging_setup import configure_logging_if_unconfigured
 from server.metrics import get_latency_registry, get_request_counter
 from server.models import ErrorBody, Health
 from server.settings import Settings, get_settings
@@ -80,6 +81,13 @@ def _log_runtime_identity() -> None:
     non-uvicorn host the logger is an ordinary unconfigured one and behaves
     exactly like any other.
 
+    That workaround is now REDUNDANT: issue #19 fixed the root cause, so
+    `logger.info(...)` here would reach `daemon.log` on its own. It is kept
+    because it still works and still produces no duplicate line —
+    `uvicorn.error` propagates to `uvicorn`, which is `propagate=False`, so
+    the record never reaches the root handler #19 installed. Unwinding it is
+    a separate change; see the follow-up to #19.
+
     A diagnostic must never be a new way to fail to start, hence the blanket
     excepts: chromadb is an optional extra and `_installed_chroma` is itself
     best effort.
@@ -100,6 +108,12 @@ def _log_runtime_identity() -> None:
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
+    # First, before anything that logs: under the daemon and under Docker this
+    # process has no logging configuration at all and every INFO record below
+    # would be discarded (issue #19). A no-op wherever logging is already set
+    # up, pytest included.
+    configure_logging_if_unconfigured()
+
     settings = settings or get_settings()
     settings.require_auth_configured()
 
