@@ -19,6 +19,7 @@ import os
 import shutil
 import stat
 import sys
+from pathlib import Path
 
 import pytest
 
@@ -209,3 +210,55 @@ def test_health_body_gains_no_paths(monkeypatch, tmp_path):
             assert not text.startswith(os.sep)
     finally:
         reset()
+
+
+# --- AC1b: the gate must also catch a PATH lookup that LOOKS safe ----------
+
+def test_serve_command_ignores_a_uvicorn_inside_our_own_prefix(monkeypatch):
+    """The decoy lives under `sys.prefix`, not in a tmp dir.
+
+    The obvious "safe" reintroduction of the deleted branch is
+    `[u] if u and u.startswith(sys.prefix) else [sys.executable, "-m", ...]`,
+    and a decoy in `tmp_path` waves it straight through — the whole suite
+    stayed green under exactly that mutation. So this case asserts the real
+    invariant ("no PATH lookup"), not the weaker one the tmp_path case can
+    see ("no RAW PATH lookup"). Both are kept: they fail on different
+    mutations.
+
+    The prefix's `bin` normally already contains a real `uvicorn`, which
+    serves as the decoy with nothing written at all. Only if it is missing do
+    we create one, and then restore the tree exactly; if we cannot, the case
+    skips rather than leave anything behind in a live environment.
+    """
+    bin_dir = Path(sys.prefix) / ("Scripts" if os.name == "nt" else "bin")
+    decoy = bin_dir / "uvicorn"
+    created = False
+    if not decoy.exists():
+        if not bin_dir.is_dir():
+            pytest.skip(f"no {bin_dir} to plant a decoy in")
+        try:
+            decoy.write_text("#!/bin/sh\nexit 1\n")
+            decoy.chmod(0o755)
+            created = True
+        except OSError as exc:
+            pytest.skip(f"cannot plant a decoy in {bin_dir}: {exc}")
+    try:
+        monkeypatch.setenv("PATH", str(bin_dir))
+        # Self-check first, same as the tmp_path case: prove PATH really
+        # resolves to the decoy before concluding anything from the command.
+        assert shutil.which("uvicorn") == str(decoy)
+        # And prove the decoy is inside sys.prefix, or this case is no
+        # stronger than the one above.
+        assert str(decoy).startswith(sys.prefix)
+
+        cmd = daemon._serve_command("127.0.0.1", 8000)
+
+        assert cmd[0] == sys.executable
+        assert cmd[1:3] == ["-m", "uvicorn"]
+        # The FILE, not its directory: `bin_dir` legitimately contains
+        # `sys.executable` itself.
+        assert all(str(decoy) not in part for part in cmd), cmd
+    finally:
+        if created:
+            decoy.unlink(missing_ok=True)
+            assert not decoy.exists()
