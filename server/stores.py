@@ -35,6 +35,7 @@ from pathlib import Path
 from typing import Iterator
 
 from sodamem import SodaMem
+from sodamem.errors import ErrorCode, SodaMemError
 
 from server.settings import Settings, get_settings
 
@@ -50,6 +51,23 @@ class InvalidScopeError(ValueError):
     """Raised for a user_id that is unsafe or malformed."""
 
 
+class StoreOpenError(SodaMemError):
+    """Opening a user's store failed.
+
+    Exists so the store-open path has a type at all. chromadb raises
+    `pyo3_runtime.PanicException` out of its rust bindings, and that class
+    inherits `BaseException`, not `Exception` — so it walks straight past
+    every `except Exception` in this repo AND past FastAPI's own error
+    middleware, and the client gets an unhandled 500 with no code in it. This
+    is what it becomes instead: a handled, machine-readable
+    `vector_store_unavailable` carrying a message that names the likely cause.
+    """
+
+    def __init__(self, message: str, *, details: dict | None = None) -> None:
+        super().__init__(message, code=ErrorCode.VECTOR_STORE_UNAVAILABLE,
+                         details=details)
+
+
 def validate_user_id(user_id: str) -> str:
     if not isinstance(user_id, str) or not _USER_ID_RE.match(user_id):
         raise InvalidScopeError(
@@ -59,6 +77,60 @@ def validate_user_id(user_id: str) -> str:
     if set(user_id) == {"."}:  # ".", "..", "..." — the traversal family
         raise InvalidScopeError("user_id must not be all dots")
     return user_id
+
+
+# The one failure this diagnostic exists for. chroma persists its own schema
+# version in the store; opening a store whose schema is NEWER than the
+# installed chromadb makes the rust bindings index past the end of their own
+# migration list and PANIC (issue #13/#14: "range start index 10 out of range
+# for slice of length 9" — a store migrated to sysdb 10 by chromadb 1.5.8,
+# opened by chromadb 1.1.1, which knows 9). The way that happens in practice
+# is a second interpreter: `sodamem daemon ensure` resolves `uvicorn` from
+# PATH, so a homebrew chromadb can migrate a store the venv then cannot open.
+# The panic text says none of this, so the error message has to.
+_CHROMA_VERSION_HINT = (
+    "A store written by a NEWER chromadb than the one now running panics out "
+    "of chroma's rust bindings on open. Check which interpreter is serving "
+    "(`sodamem daemon ensure` takes `uvicorn` from PATH) and run the service "
+    "on the chromadb that wrote this store."
+)
+
+
+def _diagnose_store_open(path: Path) -> str:
+    """Turn an opaque open failure into something an operator can act on.
+
+    Best effort by construction: every probe is wrapped, because a diagnostic
+    that raises would replace the real failure with its own. A store whose
+    chroma db is unreadable simply gets the static hint.
+    """
+    facts: list[str] = []
+    try:
+        from importlib.metadata import version
+        facts.append(f"chromadb {version('chromadb')} is installed")
+    except Exception:  # noqa: BLE001 - a diagnostic must never raise
+        pass
+    try:
+        import sqlite3
+        chroma_db = path / "chroma" / "chroma.sqlite3"
+        if chroma_db.exists():
+            conn = sqlite3.connect(f"file:{chroma_db}?mode=ro", uri=True)
+            try:
+                row = conn.execute(
+                    "SELECT COUNT(*), MAX(filename) FROM migrations "
+                    "WHERE dir = 'sysdb'"
+                ).fetchone()
+            finally:
+                conn.close()
+            if row and row[0]:
+                facts.append(
+                    f"this store's chroma sysdb schema is at migration "
+                    f"{row[0]} ({row[1]})"
+                )
+    except Exception:  # noqa: BLE001 - a diagnostic must never raise
+        pass
+    if facts:
+        return "; ".join(facts) + ". " + _CHROMA_VERSION_HINT
+    return _CHROMA_VERSION_HINT
 
 
 def build_provider(settings: Settings | None = None):
@@ -120,7 +192,7 @@ class StoreManager:
             if mem is None:
                 path = self.user_dir(user_id)
                 path.mkdir(parents=True, exist_ok=True)
-                mem = SodaMem.open(path, extractor=self._build_extractor())
+                mem = self._open_store(user_id, path)
                 self._cache[user_id] = mem
             self._cache.move_to_end(user_id)
             self._inflight[user_id] = self._inflight.get(user_id, 0) + 1
@@ -180,6 +252,56 @@ class StoreManager:
         while len(self._cache) > cap:
             evicted_id, evicted = self._cache.popitem(last=False)
             self._pending_close[evicted_id] = evicted
+
+    def _open_store(self, user_id: str, path: Path) -> SodaMem:
+        """Open this user's store. One attempt — the value here is the CATCH,
+        not a retry.
+
+        `except BaseException` is deliberate and is the entire point.
+        chromadb's rust bindings raise `pyo3_runtime.PanicException`, whose
+        MRO is `[PanicException, BaseException, object]`. It is not an
+        `Exception`, so `except Exception` here, FastAPI's error middleware,
+        and every other handler in this repo are structurally blind to it: the
+        panic walked all the way into the ASGI stack and the client got an
+        unhandled 500 with no code in it. Any pyo3-backed dependency can do
+        this; the catch is what makes the failure typed and handled.
+
+        No retry, deliberately. A retry looks attractive because the second
+        open "succeeds" — but only because `Store._init_chroma` swallows
+        chroma's follow-on `ValueError` and continues WITHOUT vector search.
+        That trades a loud, diagnosable 503 for a quiet 200 with retrieval
+        silently halved, which is the worst of the available behaviours for an
+        environment fault. Fail once, loudly, and say what to fix.
+
+        Re-raised untouched: `KeyboardInterrupt` and `SystemExit`. Those are
+        process-control signals, not store faults — turning Ctrl-C or
+        `sys.exit()` into a `StoreOpenError` would be a lie about what
+        happened. The list is exhaustive; two more were considered and
+        rejected:
+
+        - `GeneratorExit`: `get()` is an ordinary function. `lease()`'s
+          GeneratorExit can only land at its `yield`, by which point the open
+          has long returned. It cannot reach here.
+        - `asyncio.CancelledError`: the routes that touch stores are `def`,
+          not `async def`, so they run in the threadpool and cancellation is
+          never injected into the worker thread; `SodaMem.open` awaits
+          nothing. It cannot reach here.
+        """
+        try:
+            return SodaMem.open(path, extractor=self._build_extractor())
+        except (KeyboardInterrupt, SystemExit):
+            raise
+        except BaseException as exc:  # noqa: BLE001 - see docstring
+            diagnosis = _diagnose_store_open(path)
+            logger.error(
+                "store open for %s failed: %s: %s. %s",
+                user_id, type(exc).__name__, exc, diagnosis, exc_info=True,
+            )
+            raise StoreOpenError(
+                f"could not open the store for user_id={user_id!r}: "
+                f"{type(exc).__name__}: {exc}. {diagnosis}",
+                details={"user_id": user_id, "cause": type(exc).__name__},
+            ) from exc
 
     def _build_extractor(self):
         """Extraction needs an LLM provider; read-only endpoints do not. A

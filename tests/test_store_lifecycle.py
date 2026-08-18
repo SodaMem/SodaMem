@@ -29,7 +29,7 @@ pytest.importorskip("pydantic_settings", reason="server tests require the [serve
 
 from sodamem import SodaMem
 from server.settings import Settings
-from server.stores import StoreManager
+from server.stores import StoreManager, StoreOpenError
 
 
 def _open(data_dir):
@@ -292,3 +292,189 @@ def test_close_all_survives_a_concurrent_writer(tmp_path):
         mgr.release("writer")
 
     assert not errors, f"borrowed store was closed under a live reader: {errors[0]}"
+
+
+# ---------------------------------------------------------------------------
+# StoreManager.get(): a BaseException out of SodaMem.open()
+#
+# chromadb's rust bindings raise `pyo3_runtime.PanicException`, whose MRO is
+# [PanicException, BaseException, object] — it is NOT an Exception. So
+# `except Exception` here, in FastAPI's error middleware, and everywhere else
+# in this repo is structurally blind to it, and the panic went all the way
+# into the ASGI stack as an unhandled 500 with no code in it.
+#
+# What produced it (issues #13/#14) was an environment fault, not a chroma
+# bug: a store migrated forward by chromadb 1.5.8 (sysdb migration 10), then
+# opened by chromadb 1.1.1, which knows 9 — so the rust side sliced from index
+# 10 of a 9-element list. The store-open path cannot fix that, and must not
+# paper over it; it has to FAIL, with a type and with a message that names the
+# cause.
+#
+# The seam below injects a home-grown BaseException subclass rather than
+# importing the real panic: a tmp_path fixture store is far too small (and far
+# too correctly-versioned) to make chroma panic, so a test that waited for a
+# real one would pass whether or not the fix existed.
+# ---------------------------------------------------------------------------
+
+class FakePanic(BaseException):
+    """Shaped like pyo3_runtime.PanicException: inherits BaseException, so
+    `except Exception` cannot see it."""
+
+
+def _open_seam(monkeypatch, *, exc=FakePanic):
+    """Replace the `SodaMem` name that StoreManager opens through, so every
+    open raises `exc`.
+
+    Returns the list of calls, so a test can assert HOW MANY opens were
+    attempted — "it failed" does not distinguish one honest attempt from a
+    retry loop.
+    """
+    import types
+    from server import stores as stores_mod
+
+    calls: list = []
+
+    def fake_open(path, **kwargs):
+        calls.append(path)
+        raise exc()
+
+    monkeypatch.setattr(stores_mod, "SodaMem", types.SimpleNamespace(open=fake_open))
+    return calls
+
+
+def test_a_baseexception_from_open_becomes_a_typed_error(tmp_path, monkeypatch):
+    """The regression itself. Without the `except BaseException`, this test
+    does not merely fail an assertion — the FakePanic escapes `get()`, exactly
+    as the real panic escaped into the ASGI stack."""
+    calls = _open_seam(monkeypatch)
+    mgr = StoreManager(_settings(tmp_path))
+
+    with pytest.raises(StoreOpenError) as caught:
+        mgr.get("alice")
+
+    assert len(calls) == 1, f"one honest attempt, not {len(calls)}"
+    assert isinstance(caught.value.__cause__, FakePanic)
+    assert "alice" in str(caught.value)
+    mgr.close_all()
+
+
+def test_the_error_names_the_likely_cause(tmp_path, monkeypatch):
+    """A 503 that says only "FakePanic" costs the next operator the same
+    afternoon this one cost. The message has to point at the version
+    mismatch, and carry a machine-readable code."""
+    from sodamem.errors import ErrorCode
+    _open_seam(monkeypatch)
+    mgr = StoreManager(_settings(tmp_path))
+
+    with pytest.raises(StoreOpenError) as caught:
+        mgr.get("alice")
+
+    message = str(caught.value)
+    assert "chromadb" in message
+    assert "PATH" in message, "the operator has to be told WHERE to look"
+    assert caught.value.code is ErrorCode.VECTOR_STORE_UNAVAILABLE
+    mgr.close_all()
+
+
+def test_a_plain_exception_from_open_is_typed_the_same_way(tmp_path, monkeypatch):
+    """The BaseException catch is a widening, not a replacement — an ordinary
+    Exception must take the same path, not fall through to a 500."""
+    calls = _open_seam(monkeypatch, exc=RuntimeError)
+    mgr = StoreManager(_settings(tmp_path))
+
+    with pytest.raises(StoreOpenError) as caught:
+        mgr.get("alice")
+
+    assert isinstance(caught.value.__cause__, RuntimeError)
+    assert len(calls) == 1
+    mgr.close_all()
+
+
+@pytest.mark.parametrize("control_exc", [KeyboardInterrupt, SystemExit])
+def test_process_control_exceptions_are_never_swallowed(
+    tmp_path, monkeypatch, control_exc,
+):
+    """Ctrl-C and sys.exit() are not store faults. Catching BaseException
+    without carving these two out would report a shutdown signal as a broken
+    store."""
+    calls = _open_seam(monkeypatch, exc=control_exc)
+    mgr = StoreManager(_settings(tmp_path))
+
+    with pytest.raises(control_exc):
+        mgr.get("alice")
+
+    assert len(calls) == 1
+    mgr.close_all()
+
+
+def test_a_failed_open_leaves_no_trace_in_the_manager(tmp_path, monkeypatch):
+    """The failure raises BEFORE the cache write and the borrow count, so a
+    later successful get() must be completely unaffected. A half-recorded
+    failure would pin a phantom borrow that is never reclaimed."""
+    calls = _open_seam(monkeypatch)
+    mgr = StoreManager(_settings(tmp_path))
+
+    with pytest.raises(StoreOpenError):
+        mgr.get("alice")
+
+    assert "alice" not in mgr._cache
+    assert "alice" not in mgr._inflight
+    assert "alice" not in mgr._pending_close
+
+    monkeypatch.undo()                           # the seam goes away
+    mem = mgr.get("alice")                       # a real open, on a real store
+    assert mem.store.get_all_fact_events("alice") == []
+    assert len(calls) == 1
+    mgr.release("alice")
+    mgr.close_all()
+
+
+def test_a_failed_open_is_logged_with_its_traceback(tmp_path, monkeypatch, caplog):
+    """The 503 body is what the client sees; the log is what the operator
+    debugs from, and it must carry the panic itself."""
+    import logging
+    _open_seam(monkeypatch)
+    mgr = StoreManager(_settings(tmp_path))
+
+    with caplog.at_level(logging.ERROR, logger="server.stores"):
+        with pytest.raises(StoreOpenError):
+            mgr.get("alice")
+
+    errors = [r for r in caplog.records if r.levelno == logging.ERROR]
+    assert errors, "a store that will not open must log at ERROR"
+    assert "alice" in errors[0].getMessage()
+    assert "FakePanic" in errors[0].getMessage()
+    assert errors[0].exc_info is not None, "the traceback must be kept"
+    mgr.close_all()
+
+
+def test_a_store_that_will_not_open_is_a_503_not_an_unhandled_500(
+    tmp_path, monkeypatch,
+):
+    """The HTTP exit. Before the fix this request died as an unhandled
+    BaseException inside the ASGI stack; now it is an ErrorBody with a
+    machine-readable code and an actionable message."""
+    pytest.importorskip("fastapi", reason="server tests require the [server] extra")
+    from fastapi.testclient import TestClient
+
+    from server.app import create_app
+    from server.settings import reset_settings_cache
+    from server.stores import reset_store_manager
+
+    monkeypatch.setenv("SODAMEM_DATA_ROOT", str(tmp_path))
+    monkeypatch.setenv("SODAMEM_AUTH_DISABLED", "true")
+    monkeypatch.setenv("SODAMEM_API_KEY", "k")
+    reset_settings_cache()
+    reset_store_manager()
+    _open_seam(monkeypatch)
+    try:
+        client = TestClient(create_app())
+        r = client.get("/v1/context", params={"user_id": "alice", "query": "anything"})
+
+        assert r.status_code == 503, r.text
+        body = r.json()
+        assert body["code"] == "vector_store_unavailable"
+        assert "chromadb" in body["message"]
+    finally:
+        reset_store_manager()
+        reset_settings_cache()
