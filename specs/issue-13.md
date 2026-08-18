@@ -227,7 +227,7 @@ provider 时返回 503 是既有先例（`tests/test_server_routes.py:581`）。
       `/Users/aaron.w/Desktop/SodaMem-worktrees/issue-9/.venv`；schema-forward store 在
       `/private/tmp/claude-501/-Users-aaron-w-Desktop-SodaMem/7fbf6096-fa4c-4599-ac86-c9710a5180ba/scratchpad/benchdata`
       （`user_id=bench`）。
-- [ ] **AC10**：现有全量测试仍通过 —— main 基线 **820 passed / 1 skipped**，本次新增 8 个
-      用例后应为 **828 passed / 1 skipped**，无新增失败。
+- [ ] **AC10**：现有全量测试仍通过 —— main 基线 **820 passed / 1 skipped**，本次新增用例后
+      应为 **835 passed / 1 skipped**，无新增失败。
 
 **PARTIAL = FAIL。** AC1 / AC3 / AC8 / AC9 任一缺失即为未通过。
