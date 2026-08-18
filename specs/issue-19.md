@@ -69,7 +69,7 @@ WARNING 门槛 —— 走的是 `lastResort`，不是任何我们配置过的东
 | `server/app.py` | 174 | INFO — 每请求行，本 issue 的主角 |
 | `server/console_mount.py` | 76, 89 | INFO — console 挂没挂上 |
 | `server/control.py` | 732 | DEBUG |
-| `sodamem/` 下 12 个 logger，13 处 INFO/DEBUG | — | INFO/DEBUG（同一个 root，同一个病） |
+| `sodamem/` 下 12 个 logger，13 处 INFO/DEBUG | — | 同一个 root，同一个病，但**本次不修**（修订 A） |
 
 `server/control.py`、`server/stores.py`、`server/webhooks.py` 的 WARNING/ERROR 目前靠
 `lastResort` 侥幸可见 —— 那是运气，不是设计。
@@ -78,8 +78,9 @@ WARNING 门槛 —— 走的是 `lastResort`，不是任何我们配置过的东
 
 - 守护进程的日志里真的有每请求行。用户报"recall 返回空"时，能从日志读出请求到没到、
   走了哪条路由、多少毫秒、rid 是多少。这是本次唯一重要的价值。
-- `sodamem.*` 的 ingest/extractor 诊断（13 处 INFO）一并变得可见 —— 抽取失败是
-  `daemon.py:extraction_warnings()` 已经在正面警告的头号沉默故障。
+- ~~`sodamem.*` 的 ingest/extractor 诊断（13 处 INFO）一并变得可见。~~
+  **【修订 A，验收时撤回 —— 见文末「Spec 修订记录」】** 本次范围只有 `server`。
+  `sodamem` 保持 WARNING。
 - Docker 部署同样受益（见下方决策），不需要第二次修。
 
 ## 决策：选 **Option 1 —— 在 `create_app()` 里配置日志**
@@ -159,8 +160,7 @@ if root.handlers:            # 有人配过（pytest / 宿主应用 / 第二次�
 handler = logging.StreamHandler(sys.stderr)
 handler.setFormatter(logging.Formatter(<见下>))
 root.addHandler(handler)
-logging.getLogger("server").setLevel(logging.INFO)
-logging.getLogger("sodamem").setLevel(logging.INFO)
+logging.getLogger("server").setLevel(logging.INFO)   # 只有 server；sodamem 见修订 A
 return True
 ```
 
@@ -285,8 +285,9 @@ Implementer 需要做的是：在 CHANGELOG 或 PR 描述里点名"#14 的 worka
       `grep -c 'GET /health -> 200'` 的值等于实际发出的请求数（不是 2 倍）；
       `grep -c 'serving on interpreter'`（#14 的诊断行）**恰好为 1**。
 
-- [ ] **AC7 — 现有套件不退化。** `pytest` 结果为 **843 passed, 1 skipped**，与 main
-      基线逐字一致。特别检查 `tests/test_daemon_command.py::test_create_app_logs_the_running_interpreter`
+- [ ] **AC7 — 现有套件不退化。** `pytest` 结果为 **847 passed, 1 skipped** —— 即 main 基线的
+      843 passed 加上本次新增的 4 个测试，既有测试零退化。（**修订 B**：原文写"逐字
+      一致 843"，与本 spec 自己要求新增测试的 AC1/AC3/AC4 直接矛盾，是我的笔误。）特别检查 `tests/test_daemon_command.py::test_create_app_logs_the_running_interpreter`
       仍然通过（#14 的诊断没被打坏）。
 
 ### 每条门"在没有 fix 时如何失败" —— implementer 必须逐条演示
@@ -304,3 +305,33 @@ Implementer 需要做的是：在 CHANGELOG 或 PR 描述里点名"#14 的 worka
 
 **PARTIAL = FAIL。** 尤其是 AC5：一个只有单元测试绿、拿不出 before/after `daemon.log`
 的 PR 不算修好了这个 bug —— 这个 bug 的全部性质就是"单元测试是绿的而真实日志是空的"。
+
+
+---
+
+## Spec 修订记录（验收时由 Iris 补，2026-08-19）
+
+写 spec 时的两处错误，现按实际交付**修正 spec 本身**，而不是让代码事后定义 spec。
+
+### 修订 A —— 范围收窄到 `server`，不含 `sodamem`。**接受，且这比我原来的判断更好。**
+
+原 spec 的 Value 和 Implementation Path 都写了 `logging.getLogger("sodamem").setLevel(INFO)`。
+**没有任何一条 AC 依赖它** —— AC1/AC5/AC6 通篇只断言 `server.app`。所以这是 Value 段的
+范围蔓延，不是验收标准的变更。
+
+收窄是对的，理由不是"issue 没要求"这么轻，而是：
+
+1. #19 的标题和**全部**证据都是 `server/`。把 `sodamem` 捎带上是我加的，不是 issue 要的。
+2. 实测确认（非转述）：`sodamem/memory/ingest/extractor.py:267` 渲染 `expr` / `raw_value` /
+   `session_date`，`:785` 渲染 `predicate_raw` —— 全是**用户记忆里抽出来的内容**。唤醒它们
+   等于让一个**记忆产品**开始把用户内容明文写进 `~/.sodamem/daemon.log`，而 daemon.log
+   恰恰是用户会整个贴进 GitHub issue 的那个文件。已复核：不涉及凭据。
+3. 风险不对称。窄→宽以后是改一个 tuple，带它自己的论证；宽→窄要等到东西已经写进了别人
+   机器的磁盘之后。默认值该选诚实的那个。
+
+代码把这段理由写在 `_OUR_LOGGERS` 的注释里，不是写在 commit message 里 —— 位置对。
+
+### 修订 B —— AC7 的期望值是 847 passed, 1 skipped，不是 843。
+
+原文要求"与 main 基线逐字一致 843 passed"，而同一份 spec 的 AC1/AC3/AC4 又要求新增测试。
+两者不可能同时成立。正确读法：843 基线 + 4 个新测试 = 847，既有测试零退化。已实测 847。
