@@ -59,6 +59,24 @@ class Client:
                 f"cannot reach the SodaMem service at {self.base_url}: "
                 f"{exc.reason}. Run `sodamem daemon ensure` to start one."
             ) from exc
+        except http.client.InvalidURL:
+            # Carved out of the branch below, which would otherwise catch it as
+            # an `HTTPException` and answer it with "run `sodamem daemon
+            # ensure`" — a remedy that cannot possibly work, because the URL
+            # itself is malformed. It is not even a response-phase failure:
+            # it comes out of `HTTPConnection.__init__` -> `_get_hostport`,
+            # before a socket exists.
+            #
+            # A friendlier message here would be a lie of a different kind.
+            # Measured: `status()` would return a tidy sentence and then
+            # `ensure()` would die three lines later in `_split()` with
+            # `ValueError: Port could not be cast to integer value` — a WORSE
+            # traceback than the `InvalidURL` the user gets today, since it no
+            # longer names the URL as the problem. Nothing `call()` can do
+            # fixes that; it needs `_split()`, which this change does not
+            # touch. So leave the behaviour exactly as it was and let the
+            # config error stay a config error.
+            raise
         except (ConnectionError, TimeoutError, http.client.HTTPException) as exc:
             # The two branches above only cover the CONNECT phase: urllib's
             # `AbstractHTTPHandler.do_open` wraps the `OSError` from
@@ -74,9 +92,10 @@ class Client:
             # one alone leaves the other escaping. `TimeoutError` is the
             # service that is up but wedged — the same answer to the caller,
             # and since 3.10 it IS `socket.timeout`. `http.client.HTTPException`
-            # is "what came back is not a whole HTTP response" (`IncompleteRead`,
-            # `BadStatusLine`), which is the service failing to answer, not a
-            # bug here.
+            # is "what came back is not a whole HTTP response" — `IncompleteRead`,
+            # `BadStatusLine`, `LineTooLong`, `UnknownProtocol`: all of them the
+            # service failing to answer, not a bug here. Its one member that is
+            # NOT that is `InvalidURL`, re-raised just above.
             #
             # Deliberately NOT bare `OSError` — it would also swallow OS
             # failures that have nothing to do with the network. `json.loads`

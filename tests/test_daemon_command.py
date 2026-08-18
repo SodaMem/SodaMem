@@ -287,6 +287,13 @@ def test_ensure_survives_a_service_that_dies_mid_probe(monkeypatch):
 
     with _socket_server(_drain_then_close) as port:
         url = f"http://127.0.0.1:{port}"
+        # Name the path first. `ensure` reports its OWN error and drops the
+        # probe's, and `running is False` is equally what a port nobody is
+        # listening on produces — so without this the gate would still pass if
+        # the socket server had never come up at all.
+        probe = daemon.status(url)
+        assert "RemoteDisconnected" in probe["error"], probe["error"]
+
         result = daemon.ensure(url=url)   # must not raise
 
     assert result["running"] is False
