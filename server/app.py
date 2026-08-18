@@ -7,6 +7,8 @@ stack (I1) — FastAPI lives behind the `[server]` extra.
 from __future__ import annotations
 
 import logging
+import platform
+import sys
 import time
 import uuid
 
@@ -56,9 +58,52 @@ def _worth_logging(route: str, status_code: int) -> bool:
     return not route.startswith(_LOG_EXEMPT_PREFIXES)
 
 
+def _log_runtime_identity() -> None:
+    """Say which interpreter and which chromadb is actually serving.
+
+    Issue #14 cost an afternoon precisely because nothing on the running
+    process said this: a daemon started from a stray PATH uvicorn answered
+    health checks normally while migrating the stores with a different
+    chromadb. The CLI can only log the interpreter it INTENDS to start; this
+    line is written by whoever is really running, which also covers daemons
+    we did not start (docker, a hand-rolled uvicorn) — the hardest case.
+
+    Log only. `/health` is unauthenticated and `host` defaults to 0.0.0.0;
+    issue #13 (AC8(v)) settled that response bodies must not carry filesystem
+    paths, and `sys.executable` is one.
+
+    Emitted on `uvicorn.error`, not on this module's logger, and that is not
+    cosmetic: uvicorn configures only its own loggers, so the root logger has
+    no handler and a `server.app` INFO record is dropped by `lastResort`. It
+    would be absent from `~/.sodamem/daemon.log` — the one file this line
+    exists to appear in. Verified against a real `daemon ensure` run. Under a
+    non-uvicorn host the logger is an ordinary unconfigured one and behaves
+    exactly like any other.
+
+    A diagnostic must never be a new way to fail to start, hence the blanket
+    excepts: chromadb is an optional extra and `_installed_chroma` is itself
+    best effort.
+    """
+    chroma: str | None = None
+    try:
+        from server.stores import _installed_chroma
+        chroma = _installed_chroma()[0]
+    except Exception:  # noqa: BLE001 - diagnostics never break startup
+        chroma = None
+    try:
+        logging.getLogger("uvicorn.error").info(
+            "serving on interpreter %s (python %s, chromadb %s)",
+            sys.executable, platform.python_version(), chroma or "not installed",
+        )
+    except Exception:  # noqa: BLE001 - diagnostics never break startup
+        pass
+
+
 def create_app(settings: Settings | None = None) -> FastAPI:
     settings = settings or get_settings()
     settings.require_auth_configured()
+
+    _log_runtime_identity()
 
     # ADR 0001 §2: single writer is a CORRECTNESS constraint (per-user SQLite,
     # no WAL). Enforced here rather than trusted to uvicorn's default worker
