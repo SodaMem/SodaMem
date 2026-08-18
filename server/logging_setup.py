@@ -31,14 +31,23 @@ import sys
 #: uvicorn's lines is a feature: you can tell at a glance who wrote which.
 _FORMAT = "%(asctime)s %(levelname)s %(name)s: %(message)s"
 
-#: The loggers we own. Root deliberately stays at WARNING so third parties
-#: (chromadb, httpx, openai, urllib3) do not flood the log; selection is done
-#: entirely by logger level, with no Filter and no handler level.
-_OUR_LOGGERS = ("server", "sodamem")
+#: `server` only, and the omission of `sodamem` is deliberate. Root stays at
+#: WARNING so third parties (chromadb, httpx, openai, urllib3) do not flood the
+#: log, and the library inherits that same WARNING: issue #19 is about the
+#: service layer's records — the per-request line, `console_mount` — and every
+#: piece of evidence in it is a `server.*` logger. Waking the ~13 INFO sites in
+#: `sodamem/` would additionally start writing user-derived content to
+#: `~/.sodamem/daemon.log` in the clear (e.g. `ingest/extractor.py` renders
+#: `raw_value` and `predicate_raw`). No credentials are involved, but a log is
+#: the thing people paste into bug reports, and changing what a memory product
+#: puts on disk is not a decision a logging fix gets to make as a side effect.
+#: If library INFO is wanted later it is its own change, with its own argument.
+#: Selection is done entirely by logger level — no Filter, no handler level.
+_OUR_LOGGERS = ("server",)
 
 
 def configure_logging_if_unconfigured() -> bool:
-    """Install one stderr handler and lower our loggers to INFO, once.
+    """Install one stderr handler and lower the `server` logger to INFO, once.
 
     The guard is "the root logger has no handlers", which is exactly "nobody
     in this process has configured logging" — the only case where it is our

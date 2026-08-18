@@ -129,7 +129,14 @@ def test_info_from_server_reaches_the_log_in_daemon_state(
         # this, `logger.info(...)` returns inside `isEnabledFor()` and the
         # record is never created, in production, forever.
         assert logging.getLogger("server.app").getEffectiveLevel() <= logging.INFO
-        assert logging.getLogger("sodamem").getEffectiveLevel() <= logging.INFO
+
+        # SCOPE, pinned rather than merely tolerated: `sodamem` stays at
+        # WARNING. Issue #19 is about the service layer, and waking the
+        # library's INFO sites would start writing user-derived content
+        # (`ingest/extractor.py`'s `raw_value` / `predicate_raw`) into
+        # `daemon.log` in the clear. That is a separate decision.
+        assert logging.getLogger("sodamem").getEffectiveLevel() == logging.WARNING
+        assert logging.getLogger("sodamem.memory").getEffectiveLevel() == logging.WARNING
 
         stream = io.StringIO()
         handler.setStream(stream)
