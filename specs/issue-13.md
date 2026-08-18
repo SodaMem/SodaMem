@@ -37,6 +37,27 @@ AC1/AC2/AC9 已被推翻。** 留下这段而不是悄悄改写，是因为后�
    换一个安静的 200 和被砍掉一半的召回。** 对一个版本不匹配的环境故障，这是所有可选行为
    里最差的一个。
 
+## 第二次修订（code review 之后）
+
+第一次修订推翻了前提；这一次修订的是 **AC8 自己写错了**，所以改的是 spec 不是代码。
+留档同上：AC 变过就要说清为什么。
+
+1. **AC8 原文「单测至少断言消息含 `chromadb` 与 `PATH`」是无条件的**，实现照做的结果是
+   每一个失败都被追加 chroma hint —— 一个 `PermissionError` 也被告知"某个更新的 chromadb
+   写过这个 store，去查是哪个解释器在服务"。**自信的错误线索比没有线索更贵。** 正确行为是
+   把 hint 变成"挣来的"：只在失败确实是 chroma 形状时给（cause 名字含 `Panic`，或该 store
+   的 sysdb migration 数超过所装 chromadb 自带的数量），其余给通用指引。AC8 已按此重写，
+   并补上互补的反向要求（(ii)）。
+2. **AC8 漏掉了一个本次改动【新引入】的暴露面**：改动前这条路径是 body 为空的未处理 500，
+   现在它是一个有 message 的 503，而 `host` 默认 `0.0.0.0`。原始异常文本里带绝对路径。
+   已补为 AC8(v)。
+3. **review 另发现诊断在全局 `StoreManager._lock` 内跑**（探针读的 sqlite 可能正被另一个
+   进程锁着 —— 恰恰是本诊断要描述的双解释器场景；实测被独占写者持锁时 5.2 s）。修法是结构性的
+   而不是加个超时：`_open_store()` 只抛裸的类型化错误，诊断挪到 `get()` 的
+   `except StoreOpenError` 里、**锁已释放之后**再跑（见 Implementation Path 第 1 节）。
+   这不是新增 AC，而是 AC5「不改 LRU/借用行为」的题中之义 —— 一次 store 打不开不得让
+   其他所有用户排队。代码里有 docstring 和对应用例钉住这个结构，后来的重构不要把它挪回去。
+
 ## Problem
 
 真正的缺陷与 chroma 无关，只有一条：
@@ -95,8 +116,14 @@ rust panic 文本 —— 它不会告诉你"你的 store 是被另一个 chromad
     `yield` 处，那时 open 早已返回。到不了这里。
   - `asyncio.CancelledError` —— 碰 store 的路由都是 `def` 不是 `async def`，跑在
     threadpool 里，取消不会注入 worker 线程；`SodaMem.open` 不 await 任何东西。到不了这里。
-- 捕获后：`logger.error(..., exc_info=True)`（含 user_id、异常类型名、诊断文本），然后
-  `raise StoreOpenError(...) from exc`。
+- 捕获后：`logger.error(..., exc_info=True)`（含 user_id、异常类型名与**原始异常文本**），
+  然后 `raise StoreOpenError(...) from exc`。**进错误对象的只有类型名**，原文留在日志里
+  （理由见 AC8(v)）。
+- **诊断不在锁内跑。** `_open_store()` 只抛裸的类型化错误；`get()` 用
+  `except StoreOpenError` 在 `with self._lock` **外面**接住它，补上诊断再抛。
+  `self._lock` 串行化所有用户的 `get()/release()/close_all()`，而诊断要读一个可能正被
+  别的进程锁住的 sqlite 文件；放在临界区里等于让所有无关用户排在那把文件锁后面。
+  锁外重算路径是安全的：`user_dir()` 是 settings + user_id 的纯函数，不读写任何 manager 状态。
 
 ### 2. 诊断消息才是交付物
 
@@ -163,16 +190,32 @@ provider 时返回 503 是既有先例（`tests/test_server_routes.py:581`）。
       带 `chromadb`。
 - [ ] **AC7**：失败打 **ERROR** 级日志（不是 WARNING —— 没有重试路径了，这是一次硬失败），
       含 user_id 与被吞异常的类型名，且 `exc_info` 非空（traceback 必须留下）。
-- [ ] **AC8（诊断可行动性 —— 本次价值最大的部分）**：`StoreOpenError` 的消息必须同时点名
-      **(a)** 安装的 chromadb 版本、**(b)** 这个 store 的 schema 状态（sysdb migration 号）、
-      **(c)** 最可能的原因与去哪儿看（PATH / `sodamem daemon ensure` 取 uvicorn）。
-      单测至少断言消息含 `chromadb` 与 `PATH`，且 `exc.code is ErrorCode.VECTOR_STORE_UNAVAILABLE`。
-      **(b) 必须由单测覆盖，不能只靠 AC9 的人工输出**：手工在 `<store>/chroma/chroma.sqlite3`
-      里造一张 `migrations` 表（`dir='sysdb'` 若干行），断言消息里出现该 migration 号。
-      那次 sqlite 读是整个诊断里最脆的一环 —— 表名或列名一改它就静默退化成静态 hint，
-      而静态 hint 仍然含 `chromadb` 与 `PATH`，其余断言一个都不会红。
-      **诊断探针自身抛异常时不得顶掉真正的错误** —— store 的 chroma db 不可读时仍返回
-      静态 hint 并正常抛出 `StoreOpenError`（同样需要一个用例）。
+- [ ] **AC8（诊断可行动性 —— 本次价值最大的部分）**：诊断必须**有条件地**给出，
+      它是挣来的、不是无脑追加的。
+      - **(i) chroma 形状的失败**（cause 类型名含 `Panic`，**或**该 store 的 sysdb
+        migration 数超过所装 chromadb 自带的数量）：消息必须同时点名 **(a)** 安装的
+        chromadb 版本及其已知 migration 数、**(b)** 这个 store 的 schema 状态
+        （sysdb migration 号 + 文件名）、**(c)** 去哪儿看（PATH / `sodamem daemon ensure`
+        取 uvicorn）。单测断言消息含 `chromadb` 与 `PATH`，且
+        `exc.code is ErrorCode.VECTOR_STORE_UNAVAILABLE`。
+      - **(ii) 非 chroma 形状的失败必须【不】带 chroma hint。** 对 `PermissionError`
+        说"检查是哪个 chromadb 在 PATH 上"是一个**自信的错误线索**，比不给线索更贵 ——
+        它把读者送去查一个跟故障无关的方向。这类失败只给"完整 traceback 在服务日志里"
+        这种通用指引。需要独立用例：注入 `PermissionError`，断言消息**不含** `PATH`
+        与 `NEWER chromadb`，但仍含异常类型名。
+      - **(iii) (b) 必须由单测覆盖，不能只靠 AC9 的人工输出**：手工在
+        `<store>/chroma/chroma.sqlite3` 里造一张 `migrations` 表（`dir='sysdb'` 若干行，
+        外加一行别的 `dir` 以捕获忘记过滤的探针），断言消息里出现该 migration 号与文件名。
+        那次 sqlite 读是整个诊断里最脆的一环 —— 表名或列名一改它就静默退化成静态 hint，
+        其余断言一个都不会红。
+      - **(iv) 诊断探针自身抛异常时不得顶掉真正的错误** —— store 的 chroma db 不可读时
+        仍正常抛出 `StoreOpenError` 且 `__cause__` 保持为原始异常（需要一个用例）。
+      - **(v) 503 body 不得泄露文件系统路径。** 这是本次改动**新引入**的暴露面：改动前
+        这条路径是一个 body 为空的未处理 500，而 `server/settings.py` 的 `host` 默认
+        `0.0.0.0`。原始异常文本里有绝对路径（经 `_build_extractor` 还可能有 provider 配置），
+        所以进 body 的只能是异常**类型名**，原文连同 traceback 留在日志里（`exc_info`）。
+        需要独立用例：注入一个 message 里带绝对路径的异常，断言路径既不在 message 里、
+        也不在 `details` 里。
 - [ ] **AC9（手工验证，两侧都要贴真实输出）**：
       - **干净 store**（版本一致）：全新守护进程的**第一个** `/v1/context` 请求 **200**，
         `degraded: []`，citations 非空（已测得 24 citations）。这一侧证明本次改动没有把
