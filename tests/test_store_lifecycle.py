@@ -569,3 +569,141 @@ def test_a_broken_diagnostic_never_replaces_the_real_failure(tmp_path, monkeypat
     assert "FakePanic" in message
     assert "chromadb" in message and "PATH" in message, "static hint must survive"
     mgr.close_all()
+
+
+# ---------------------------------------------------------------------------
+# What the 503 says, and what it must not say or do.
+# ---------------------------------------------------------------------------
+
+def test_the_error_body_carries_no_filesystem_paths(tmp_path, monkeypatch):
+    """Before this change the same failure was an unhandled 500 whose body
+    carried nothing. Typing it must not turn the error into an information
+    leak: settings default `host` to 0.0.0.0, and the raw exception text of an
+    open failure holds absolute paths (and, via _build_extractor, provider
+    config). The type name is what a client needs; the rest belongs in the
+    log, where exc_info already puts it."""
+    secret = "/private/var/nowhere/secret-root/alice/memory.db.maintenance.lock"
+
+    def leaky():
+        return PermissionError(f"[Errno 13] Permission denied: {secret!r}")
+
+    _open_seam(monkeypatch, exc=leaky)
+    mgr = StoreManager(_settings(tmp_path))
+
+    with pytest.raises(StoreOpenError) as caught:
+        mgr.get("alice")
+
+    message = str(caught.value)
+    assert secret not in message
+    assert "/private/var" not in message and str(tmp_path) not in message
+    assert "PermissionError" in message, "the client still needs the type"
+    assert "/" not in str(caught.value.details), "details reach the body too"
+    mgr.close_all()
+
+
+def test_a_non_chroma_failure_is_not_told_to_go_look_at_chromadb(
+    tmp_path, monkeypatch,
+):
+    """A confident wrong lead is worse than none. `PermissionError` has
+    nothing to do with which chromadb is on PATH, and sending its reader off
+    to compare interpreters costs them the afternoon this hint exists to save
+    them."""
+    _open_seam(monkeypatch, exc=PermissionError)
+    mgr = StoreManager(_settings(tmp_path))
+
+    with pytest.raises(StoreOpenError) as caught:
+        mgr.get("alice")
+
+    message = str(caught.value)
+    assert "PATH" not in message
+    assert "NEWER chromadb" not in message
+    assert "PermissionError" in message and "traceback" in message
+    mgr.close_all()
+
+
+def test_a_schema_forward_store_earns_the_chroma_hint_on_any_cause(
+    tmp_path, monkeypatch,
+):
+    """The gate is not "was it a panic" — it is "does this look chroma-shaped".
+    A store whose schema is ahead of the installed chromadb has earned the
+    hint whatever the exception type happened to be."""
+    _fake_chroma_db(tmp_path / "alice", sysdb_migrations=99)
+    _open_seam(monkeypatch, exc=RuntimeError)
+    mgr = StoreManager(_settings(tmp_path))
+
+    with pytest.raises(StoreOpenError) as caught:
+        mgr.get("alice")
+
+    message = str(caught.value)
+    assert "NEWER chromadb" in message and "PATH" in message
+    assert "99" in message
+    mgr.close_all()
+
+
+def test_the_diagnostic_does_not_run_under_the_manager_lock(tmp_path, monkeypatch):
+    """`self._lock` serializes get()/release()/close_all() for EVERY user. The
+    diagnostic reads a sqlite file another process may hold a lock on — the
+    two-interpreter case this whole diagnosis is about — so running it inside
+    the critical section stalls every unrelated user behind a file lock held
+    by the very daemon we are complaining about.
+
+    Measured on a copy of the real store: probing a db held by an exclusive
+    writer costs 5.2s (Python's default sqlite busy timeout) against 0.006s
+    unlocked. Rather than re-run that timing here, this test pins the
+    STRUCTURE that makes it harmless: with a deliberately slow diagnostic, an
+    unrelated caller must still get the lock immediately.
+    """
+    import time
+    from server import stores as stores_mod
+
+    slow = 1.0
+
+    def slow_diagnosis(path, cause_name=""):
+        time.sleep(slow)
+        return "slow diagnosis"
+
+    monkeypatch.setattr(stores_mod, "_diagnose_store_open", slow_diagnosis)
+    _open_seam(monkeypatch)
+    mgr = StoreManager(_settings(tmp_path))
+
+    def fail_slowly():
+        with pytest.raises(StoreOpenError):
+            mgr.get("alice")
+
+    failing = threading.Thread(target=fail_slowly)
+    failing.start()
+    time.sleep(0.15)                        # alice is inside her diagnosis now
+
+    waited: list[float] = []
+
+    def unrelated_caller():
+        started = time.perf_counter()
+        with mgr._lock:
+            pass
+        waited.append(time.perf_counter() - started)
+
+    watcher = threading.Thread(target=unrelated_caller)
+    watcher.start()
+    watcher.join(timeout=slow * 3)
+    failing.join(timeout=5)
+
+    assert waited, "an unrelated caller never got the lock at all"
+    assert waited[0] < slow / 2, (
+        f"an unrelated caller waited {waited[0]:.2f}s while the diagnostic "
+        "ran — the diagnosis is back inside the critical section"
+    )
+    mgr.close_all()
+
+
+def test_a_failed_open_does_not_leave_an_empty_user_directory(tmp_path, monkeypatch):
+    """`get()` mkdirs before opening. A failed open used to leave that empty
+    directory behind, where it is indistinguishable from a real user with an
+    empty store — to `ls`, and to anything that ever enumerates data_root."""
+    _open_seam(monkeypatch)
+    mgr = StoreManager(_settings(tmp_path))
+
+    with pytest.raises(StoreOpenError):
+        mgr.get("alice")
+
+    assert not (tmp_path / "alice").exists()
+    mgr.close_all()
