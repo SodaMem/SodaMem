@@ -11,6 +11,21 @@ bottom.
 
 ## [Unreleased]
 
+### Fixed
+
+- **Daemon logging** (#19) — every `INFO`/`DEBUG` record from `server/` and
+  `sodamem/` was silently discarded under `sodamem daemon` and under the
+  Docker image, including the per-request line in `server/app.py`. uvicorn's
+  `LOGGING_CONFIG` has no `root` key, so the root logger kept Python's default
+  `WARNING` level *and* had no handler: records were never created, let alone
+  written. `create_app()` now installs a timestamped stderr handler and lowers
+  the `server` / `sodamem` loggers to `INFO`, but only when the root logger has
+  no handlers — a no-op under pytest or inside a host application that
+  configured logging itself. `~/.sodamem/daemon.log` now contains the
+  per-request lines. Note: the `uvicorn.error` workaround added in #14 is now
+  redundant (it still works and still produces no duplicate line); unwinding it
+  is left to a follow-up.
+
 ## [0.1.1] — 2026-08-17
 
 ### Fixed
