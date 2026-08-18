@@ -22,7 +22,11 @@ bottom.
   the `server` / `sodamem` loggers to `INFO`, but only when the root logger has
   no handlers — a no-op under pytest or inside a host application that
   configured logging itself. `~/.sodamem/daemon.log` now contains the
-  per-request lines. Note: the `uvicorn.error` workaround added in #14 is now
+  per-request lines. Scope is deliberate: `server` INFO becomes visible, while
+  the `sodamem` library's own loggers stay at `WARNING` — turning those on
+  would start writing user-derived content (extractor `raw_value` /
+  `predicate_raw`) to disk in the clear, which is its own decision, not a side
+  effect of a logging fix. Note: the `uvicorn.error` workaround added in #14 is now
   redundant (it still works and still produces no duplicate line); unwinding it
   is left to a follow-up.
 
