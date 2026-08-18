@@ -513,11 +513,15 @@ def _fake_chroma_db(store_dir, *, sysdb_migrations: int) -> None:
                 "VALUES ('sysdb', ?, ?, '', '')",
                 (n, f"{n:05d}-some-migration.sqlite.sql"),
             )
-        # Another dir, so a probe that forgot to filter by dir='sysdb' and
-        # just counted rows would report the wrong number and fail here.
+        # A row from ANOTHER dir, deliberately numbered so that it would
+        # change BOTH halves of the reported fact if the probe ever lost its
+        # `dir = 'sysdb'` filter: the count would go up by one, and MAX(filename)
+        # would become this row. Real stores have exactly this shape — the
+        # benchdata store carries sysdb 10 + metadb 6 + embeddings_queue 2, so
+        # an unfiltered probe there announces "migration 18".
         conn.execute(
             "INSERT INTO migrations (dir, version, filename, sql, hash) "
-            "VALUES ('metadb', 1, '00001-metadb.sqlite.sql', '', '')"
+            "VALUES ('metadb', 1, '99999-metadb.sqlite.sql', '', '')"
         )
         conn.commit()
     finally:
@@ -540,11 +544,14 @@ def test_the_message_reports_this_store_s_actual_migration_number(
         mgr.get("alice")
 
     message = str(caught.value)
-    assert "10" in message and "migration" in message, (
-        "the store's own schema state must reach the operator; the sqlite "
-        f"probe appears to have degraded to the static hint: {message}"
+    # The WHOLE rendered fact, count and filename together. Asserting a bare
+    # "10" would have been satisfied by the filename alone: an unfiltered
+    # probe reporting "at migration 11 (00010-some-migration.sqlite.sql)"
+    # passed that, wrong number and all.
+    assert "at migration 10 (00010-some-migration.sqlite.sql)" in message, (
+        "the store's own schema state must reach the operator, and with the "
+        f"RIGHT number; the sqlite probe looks degraded or unfiltered: {message}"
     )
-    assert "00010-some-migration.sqlite.sql" in message
     mgr.close_all()
 
 
@@ -636,7 +643,7 @@ def test_a_schema_forward_store_earns_the_chroma_hint_on_any_cause(
 
     message = str(caught.value)
     assert "NEWER chromadb" in message and "PATH" in message
-    assert "99" in message
+    assert "at migration 99 (00099-some-migration.sqlite.sql)" in message
     mgr.close_all()
 
 
