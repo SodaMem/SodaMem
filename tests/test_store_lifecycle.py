@@ -478,3 +478,94 @@ def test_a_store_that_will_not_open_is_a_503_not_an_unhandled_500(
     finally:
         reset_store_manager()
         reset_settings_cache()
+
+
+# ---------------------------------------------------------------------------
+# The diagnostic itself. The sqlite read is the most fragile link in the whole
+# message: rename that table or its `dir` column and `_diagnose_store_open`
+# degrades SILENTLY to the static hint — which still contains "chromadb" and
+# "PATH", so every other assertion in this file stays green while the one fact
+# that identifies THIS user's store quietly stops being reported. Which is the
+# same class of silent failure as the panic that started all this, so it gets
+# its own gate.
+# ---------------------------------------------------------------------------
+
+def _fake_chroma_db(store_dir, *, sysdb_migrations: int) -> None:
+    """Write the parts of a chroma sqlite file the diagnostic actually reads.
+
+    Hand-built rather than produced by chromadb: the point is to pin the
+    probe's contract with the ON-DISK SCHEMA (table `migrations`, column
+    `dir`), which is what breaks when chroma renames something.
+    """
+    import sqlite3 as _sqlite3
+
+    chroma_dir = store_dir / "chroma"
+    chroma_dir.mkdir(parents=True, exist_ok=True)
+    conn = _sqlite3.connect(chroma_dir / "chroma.sqlite3")
+    try:
+        conn.execute(
+            "CREATE TABLE migrations (dir TEXT, version INTEGER, "
+            "filename TEXT, sql TEXT, hash TEXT)"
+        )
+        for n in range(1, sysdb_migrations + 1):
+            conn.execute(
+                "INSERT INTO migrations (dir, version, filename, sql, hash) "
+                "VALUES ('sysdb', ?, ?, '', '')",
+                (n, f"{n:05d}-some-migration.sqlite.sql"),
+            )
+        # Another dir, so a probe that forgot to filter by dir='sysdb' and
+        # just counted rows would report the wrong number and fail here.
+        conn.execute(
+            "INSERT INTO migrations (dir, version, filename, sql, hash) "
+            "VALUES ('metadb', 1, '00001-metadb.sqlite.sql', '', '')"
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def test_the_message_reports_this_store_s_actual_migration_number(
+    tmp_path, monkeypatch,
+):
+    """The fact that makes the 503 actionable: "your store is at sysdb 10,
+    you are running a chromadb that knows 9". If the sqlite probe stops
+    working, this is the test that says so — the static-hint fallback keeps
+    every other assertion green."""
+    settings = _settings(tmp_path)
+    _fake_chroma_db(tmp_path / "alice", sysdb_migrations=10)
+    _open_seam(monkeypatch)
+    mgr = StoreManager(settings)
+
+    with pytest.raises(StoreOpenError) as caught:
+        mgr.get("alice")
+
+    message = str(caught.value)
+    assert "10" in message and "migration" in message, (
+        "the store's own schema state must reach the operator; the sqlite "
+        f"probe appears to have degraded to the static hint: {message}"
+    )
+    assert "00010-some-migration.sqlite.sql" in message
+    mgr.close_all()
+
+
+def test_a_broken_diagnostic_never_replaces_the_real_failure(tmp_path, monkeypatch):
+    """A diagnostic that raises would swap the actual store failure for its
+    own — the operator would be debugging our sqlite read instead of their
+    chromadb. Garbage where the chroma db should be, and the error still
+    arrives intact with the static hint."""
+    store_dir = tmp_path / "alice"
+    (store_dir / "chroma").mkdir(parents=True)
+    (store_dir / "chroma" / "chroma.sqlite3").write_bytes(b"not a sqlite file at all")
+    _open_seam(monkeypatch)
+    mgr = StoreManager(_settings(tmp_path))
+
+    with pytest.raises(StoreOpenError) as caught:
+        mgr.get("alice")
+
+    message = str(caught.value)
+    assert isinstance(caught.value.__cause__, FakePanic), (
+        "the ORIGINAL failure must still be the cause"
+    )
+    assert "FakePanic" in message
+    assert "chromadb" in message and "PATH" in message, "static hint must survive"
+    mgr.close_all()
