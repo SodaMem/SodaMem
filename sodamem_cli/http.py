@@ -12,6 +12,7 @@ needs to talk to one.
 """
 from __future__ import annotations
 
+import http.client
 import json
 import os
 import urllib.error
@@ -57,6 +58,39 @@ class Client:
             raise ServiceError(
                 f"cannot reach the SodaMem service at {self.base_url}: "
                 f"{exc.reason}. Run `sodamem daemon ensure` to start one."
+            ) from exc
+        except (ConnectionError, TimeoutError, http.client.HTTPException) as exc:
+            # The two branches above only cover the CONNECT phase: urllib's
+            # `AbstractHTTPHandler.do_open` wraps the `OSError` from
+            # `h.request(...)` into `URLError` and nothing else. Whatever
+            # `h.getresponse()` or `r.read()` raises walks straight out — so a
+            # service that dies after accepting us used to reach the user as a
+            # raw traceback (issue #18), on the one path whose whole job is to
+            # answer "is anything alive here?".
+            #
+            # `ConnectionError` is the issue proper: the SAME shutdown yields
+            # `RemoteDisconnected` when the dying server drained our request
+            # and `ConnectionResetError` when it did not, so catching either
+            # one alone leaves the other escaping. `TimeoutError` is the
+            # service that is up but wedged — the same answer to the caller,
+            # and since 3.10 it IS `socket.timeout`. `http.client.HTTPException`
+            # is "what came back is not a whole HTTP response" (`IncompleteRead`,
+            # `BadStatusLine`), which is the service failing to answer, not a
+            # bug here.
+            #
+            # Deliberately NOT bare `OSError` — it would also swallow OS
+            # failures that have nothing to do with the network. `json.loads`
+            # stays outside the `try`: a complete response that is not JSON is
+            # the service's bug and must not be dressed up as "not running".
+            #
+            # `import http.client` costs nothing: `urllib.request` already
+            # imports it, so this module still imports nothing that is not
+            # already in the interpreter (see the module docstring — hook
+            # import time is latency the user feels).
+            raise ServiceError(
+                f"cannot reach the SodaMem service at {self.base_url}: "
+                f"{type(exc).__name__}: {exc}. "
+                f"Run `sodamem daemon ensure` to start one."
             ) from exc
         return json.loads(raw) if raw else {}
 

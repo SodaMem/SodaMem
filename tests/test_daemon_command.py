@@ -262,3 +262,33 @@ def test_serve_command_ignores_a_uvicorn_inside_our_own_prefix(monkeypatch):
         if created:
             decoy.unlink(missing_ok=True)
             assert not decoy.exists()
+
+
+# --- issue #18: `ensure` must survive the service it is replacing ---------
+
+def test_ensure_survives_a_service_that_dies_mid_probe(monkeypatch):
+    """`daemon stop` then `daemon ensure` is the ordinary restart, and it used
+    to be the one input that produced a traceback.
+
+    `ensure()` opens with `status()`, and `status()` probes a URL that, one
+    command earlier, was a live daemon now in the middle of shutting down. A
+    real socket reproduces that shape exactly: accept, read the request, close
+    without answering. Measured against a real daemon under SIGTERM the same
+    probe surfaces as `ConnectionResetError` — the window is sub-millisecond,
+    which is why this is asserted here rather than by racing a subprocess.
+
+    `find_spec` is stubbed to None so `ensure` returns its "nothing to start"
+    dict instead of spawning uvicorn: the assertion is about surviving the
+    probe, and a test that boots a server would be measuring the boot.
+    """
+    from tests.test_http_client import _drain_then_close, _socket_server
+
+    monkeypatch.setattr(daemon, "find_spec", lambda name: None)
+
+    with _socket_server(_drain_then_close) as port:
+        url = f"http://127.0.0.1:{port}"
+        result = daemon.ensure(url=url)   # must not raise
+
+    assert result["running"] is False
+    assert result["started"] is False
+    assert result["url"] == url
