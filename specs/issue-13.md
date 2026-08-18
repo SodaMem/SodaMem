@@ -166,9 +166,13 @@ provider 时返回 503 是既有先例（`tests/test_server_routes.py:581`）。
 - [ ] **AC8（诊断可行动性 —— 本次价值最大的部分）**：`StoreOpenError` 的消息必须同时点名
       **(a)** 安装的 chromadb 版本、**(b)** 这个 store 的 schema 状态（sysdb migration 号）、
       **(c)** 最可能的原因与去哪儿看（PATH / `sodamem daemon ensure` 取 uvicorn）。
-      单测至少断言消息含 `chromadb` 与 `PATH`，且 `exc.code is ErrorCode.VECTOR_STORE_UNAVAILABLE`；
-      (b) 由 AC9 的真实输出佐证。**诊断探针自身抛异常时不得顶掉真正的错误** —— store 的
-      chroma db 不可读时仍返回静态 hint 并正常抛出 `StoreOpenError`。
+      单测至少断言消息含 `chromadb` 与 `PATH`，且 `exc.code is ErrorCode.VECTOR_STORE_UNAVAILABLE`。
+      **(b) 必须由单测覆盖，不能只靠 AC9 的人工输出**：手工在 `<store>/chroma/chroma.sqlite3`
+      里造一张 `migrations` 表（`dir='sysdb'` 若干行），断言消息里出现该 migration 号。
+      那次 sqlite 读是整个诊断里最脆的一环 —— 表名或列名一改它就静默退化成静态 hint，
+      而静态 hint 仍然含 `chromadb` 与 `PATH`，其余断言一个都不会红。
+      **诊断探针自身抛异常时不得顶掉真正的错误** —— store 的 chroma db 不可读时仍返回
+      静态 hint 并正常抛出 `StoreOpenError`（同样需要一个用例）。
 - [ ] **AC9（手工验证，两侧都要贴真实输出）**：
       - **干净 store**（版本一致）：全新守护进程的**第一个** `/v1/context` 请求 **200**，
         `degraded: []`，citations 非空（已测得 24 citations）。这一侧证明本次改动没有把
