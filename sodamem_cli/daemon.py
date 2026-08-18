@@ -17,10 +17,11 @@ loser of that race finds a healthy service and exits happy.
 from __future__ import annotations
 
 import os
-import shutil
+import shlex
 import subprocess
 import sys
 import time
+from importlib.util import find_spec
 from pathlib import Path
 
 from .http import DEFAULT_URL, Client, ServiceError
@@ -89,10 +90,31 @@ def ensure(*, url: str = "", api_key: str = "", data_root: str = "",
         if host in ("127.0.0.1", "localhost", "::1"):
             env["SODAMEM_AUTH_DISABLED"] = "true"
 
+    # Preflight, before anything is spawned or written: the daemon can only
+    # ever run on THIS interpreter (see `_serve_command`), so if this
+    # interpreter has no uvicorn there is nothing to start. `find_spec` looks
+    # without importing. Saying so here costs one sentence the user can act
+    # on; the alternative is a spawned process that dies with `code 1` in a
+    # log nobody is watching.
+    if find_spec("uvicorn") is None:
+        return {
+            "running": False, "url": target, "started": False,
+            "error": (
+                f"uvicorn is not installed in the interpreter running SodaMem "
+                f"({sys.executable}), and the daemon only ever runs there. "
+                f"Install the server extra: pip install 'sodamem[server]'"
+            ),
+        }
+
     Path(env["SODAMEM_DATA_ROOT"]).mkdir(parents=True, exist_ok=True)
     command = _serve_command(host, port)
     log = open(log_file(), "ab")
-    log.write(f"\n--- sodamem daemon start {time.strftime('%Y-%m-%dT%H:%M:%S')} ---\n"
+    # The interpreter and the exact argv go in the header, not in any HTTP
+    # body (issue #13 AC8(v): `/health` is unauthenticated and must not leak
+    # filesystem paths). Written BEFORE the spawn so a process that dies in
+    # milliseconds still leaves behind who was supposed to run it.
+    log.write(f"\n--- sodamem daemon start {time.strftime('%Y-%m-%dT%H:%M:%S')} "
+              f"interpreter={sys.executable} command={shlex.join(command)} ---\n"
               .encode())
     log.flush()
     process = subprocess.Popen(
@@ -168,10 +190,20 @@ def extraction_warnings(env: dict | None = None) -> list[str]:
 def _serve_command(host: str, port: int) -> list[str]:
     """`--workers 1` is spelled out here because it is a correctness
     constraint (ADR 0001 §2), and a default that happens to be 1 is not the
-    same thing as a guarantee."""
-    uvicorn = shutil.which("uvicorn")
-    base = [uvicorn] if uvicorn else [sys.executable, "-m", "uvicorn"]
-    return base + [
+    same thing as a guarantee.
+
+    The interpreter is ALWAYS `sys.executable`, never a `uvicorn` found on
+    PATH (issue #14). PATH answers "is there a uvicorn on this machine", not
+    "where is SodaMem installed" — and uvicorn's CLI does
+    `sys.path.insert(0, ".")`, so a stranger's uvicorn launched in a source
+    checkout imports `server` happily and then serves the stores with ITS
+    OWN chromadb. That is not cosmetic: chroma migrates a store's schema
+    forward on open, with no downgrade path, so one wrong start permanently
+    locks the correctly-installed SodaMem out of the user's memory. Do not
+    reintroduce a PATH lookup here.
+    """
+    return [
+        sys.executable, "-m", "uvicorn",
         "server.app:build", "--factory",
         "--host", host, "--port", str(port), "--workers", "1",
     ]
