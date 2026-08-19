@@ -73,21 +73,6 @@ def _log_runtime_identity() -> None:
     issue #13 (AC8(v)) settled that response bodies must not carry filesystem
     paths, and `sys.executable` is one.
 
-    Emitted on `uvicorn.error`, not on this module's logger, and that is not
-    cosmetic: uvicorn configures only its own loggers, so the root logger has
-    no handler and a `server.app` INFO record is dropped by `lastResort`. It
-    would be absent from `~/.sodamem/daemon.log` — the one file this line
-    exists to appear in. Verified against a real `daemon ensure` run. Under a
-    non-uvicorn host the logger is an ordinary unconfigured one and behaves
-    exactly like any other.
-
-    That workaround is now REDUNDANT: issue #19 fixed the root cause, so
-    `logger.info(...)` here would reach `daemon.log` on its own. It is kept
-    because it still works and still produces no duplicate line —
-    `uvicorn.error` propagates to `uvicorn`, which is `propagate=False`, so
-    the record never reaches the root handler #19 installed. Unwinding it is
-    a separate change; see the follow-up to #19.
-
     A diagnostic must never be a new way to fail to start, hence the blanket
     excepts: chromadb is an optional extra and `_installed_chroma` is itself
     best effort.
@@ -99,7 +84,7 @@ def _log_runtime_identity() -> None:
     except Exception:  # noqa: BLE001 - diagnostics never break startup
         chroma = None
     try:
-        logging.getLogger("uvicorn.error").info(
+        logger.info(
             "serving on interpreter %s (python %s, chromadb %s)",
             sys.executable, platform.python_version(), chroma or "not installed",
         )
