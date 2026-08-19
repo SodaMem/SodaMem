@@ -502,3 +502,40 @@ async def test_explore_memory_walks_from_a_starting_id(tmp_path, monkeypatch):
         "user_id": "u_mcp_new", "start_id": start, "depth": 1,
     }))
     assert "nodes" in payload or "items" in payload
+
+
+# --- the tool boundary: a dead backend must not look like an empty store ----
+
+@pytest.mark.asyncio
+async def test_a_dead_remote_backend_reaches_the_client_with_a_remedy():
+    """The worst reading of issue #21 is "memory quietly stopped working".
+
+    Two things have to hold at the protocol boundary for that not to happen,
+    and neither had a test. First, a dead backend must be DISTINGUISHABLE from
+    an empty store: `list_memories` must raise, not return `{"memories": []}`.
+    It already does — every tool lets `_call()`'s error out — so this is a gate
+    over existing behaviour, not a change; `mcp_server/main.py` is untouched.
+
+    Second, and this is what #21 actually fixes: the sentence that survives the
+    trip through `FastMCP.Tool.run` has to carry a remedy. Before the fix it
+    read `Error executing tool list_memories: Remote end closed connection
+    without response` — accurate, and useless. The framework was writing the
+    only sentence the product says while it is broken, because the code that
+    knew what went wrong let the exception past.
+    """
+    # Imported here, not at module scope: `tests/test_mcp_backend` calls
+    # `importorskip("uvicorn")`, and this file must not inherit that skip.
+    from .test_mcp_backend import _drain_then_close, _socket_server
+    from mcp_server.backend import RemoteBackend
+
+    with _socket_server(_drain_then_close) as port:
+        base = f"http://127.0.0.1:{port}"
+        server = build_server(RemoteBackend(base, "k", timeout=5.0))
+
+        with pytest.raises(ToolError) as caught:
+            await server.call_tool("list_memories", {"user_id": "alice"})
+
+        message = str(caught.value)
+        assert "cannot reach the SodaMem service" in message
+        assert base in message
+        assert "`sodamem daemon ensure`" in message
