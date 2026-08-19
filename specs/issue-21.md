@@ -295,15 +295,35 @@ stores instead.
       **不得**通过修改 `mcp_server/main.py` 来满足这条。
 - [ ] **AC8（每个 gate 都要证明会失败）**：AC1–AC5、AC6(c)、AC7 各自在**没有修复**的代码上跑
       一遍并记录输出。做法**必须**是从 main 取回原文件：
+      **【修订 · 2026-08-19，验收时改】上面这个配方原样照做会吃掉修复。** 实现者跑过一次，
+      差点丢工作。`git checkout -- <path>` 是**从 index 恢复**，不是从 HEAD。修复还没
+      commit（哪怕已经 `git add`，只要后来又改过）时，index 里躺的可能仍是 main 的版本，
+      "恢复"这一步会把改动一笔抹掉，而且 reflog 救不回未提交的内容。一个存在的意义是
+      *建立信心* 的步骤，不该是这个仓库里唯一能造成数据丢失的操作。
+
+      配方改成三条硬约束：
+
+      1. **先 commit 再证伪。** 跑之前 `git status --porcelain` 必须为空 —— 修复已经在
+         HEAD 里。
+      2. **恢复必须显式点名 HEAD**：`git restore --source=HEAD -- mcp_server/backend.py`
+         （等价 `git checkout HEAD -- mcp_server/backend.py`）。裸 `git checkout --` 禁用。
+      3. **不许用 `git stash` 对着 HEAD 做** —— 提交之后 stash 什么都不会 stash，测试照样
+         绿，"证伪"变成走过场。这个坑在 #18 里已经吃掉一轮。
+
       ```
       cd /Users/aaron.w/Desktop/SodaMem-worktrees/issue-21
+      git status --porcelain            # 必须为空：修复已在 HEAD
       git show origin/main:mcp_server/backend.py > mcp_server/backend.py   # 证伪
       /Users/aaron.w/Desktop/SodaMem-worktrees/issue-9/.venv/bin/python -m pytest \
-          tests/test_mcp_backend.py tests/test_mcp_server.py -x
-      git checkout -- mcp_server/backend.py                                # 恢复
+          tests/test_mcp_backend.py tests/test_mcp_server.py
+      git restore --source=HEAD -- mcp_server/backend.py                   # 恢复（点名 HEAD）
       ```
-      **不许用 `git stash` 对着 HEAD 做** —— 提交之后 stash 什么都不会 stash，测试照样绿，
-      "证伪"变成走过场。这个坑在 #18 里已经吃掉一轮，不许再犯。
+
+      **零风险的等价做法（验收时用的就是这个，推荐）**：根本不碰工作区 —— 把 worktree
+      `rsync -a --exclude .venv --exclude .git --exclude .pytest_cache` 到 scratchpad，
+      在副本里替换 `mcp_server/backend.py` 再跑 pytest。副本里 `cd` 进去 pytest 的 rootdir
+      前插同样生效，跑的就是副本的源码（用 `mcp_server.backend.__file__` 验证）；
+      注意先删掉副本里的 `__pycache__`，否则 traceback 里的路径会是原目录的、误导人。
       预期失败形态：AC1–AC4 看到 `RemoteDisconnected` / `ConnectionResetError` / `TimeoutError`
       / `IncompleteRead` 作为 **error 而非 `BackendError`** 逃出；AC7 看到 `ToolError` 文案是
       `Error executing tool list_memories: Remote end closed connection without response`
@@ -314,7 +334,10 @@ stores instead.
       基线 **857 passed, 1 skipped**，新增测试后为 **857+N passed, 1 skipped**，
       no failures / no errors。同时贴出证据表明跑的是 worktree 的源码而非
       `/Users/aaron.w/Desktop/SodaMem` 主仓库（见「测试环境」）。
-- [ ] **AC10（交付说明纠正 issue 的前提）**：PR 描述里写明：issue #21 断言未捕获异常会导致
+- [ ] **AC10（交付说明纠正 issue 的前提）**：**【修订 · 2026-08-19，验收时改】** 原文只说
+      "PR 描述"，没说清哪个 artifact 在哪个阶段交。钉死：这段内容的**权威载体是 PR 描述**
+      （Mercury 在 PUSH 阶段写），commit message 是它的种子，两者都必须带全。验收若在 PUSH
+      之前跑，AC10 只能记为**未交付**，不得用 commit message 顶替算通过。要写明：issue #21 断言未捕获异常会导致
       "dead stdio process"，在 mcp 1.28.1 上**不成立**（`FastMCP.Tool.run` 的 `except Exception`
       → `ToolError` → `isError=True`），实测输出附上；本次修复的真实价值是**故障时那句话
       带不带可执行的补救**，而不是防止进程死亡。附 `mcp` 版本号与解释器版本。
