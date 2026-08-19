@@ -19,16 +19,15 @@ bottom.
   `LOGGING_CONFIG` has no `root` key, so the root logger kept Python's default
   `WARNING` level *and* had no handler: records were never created, let alone
   written. `create_app()` now installs a timestamped stderr handler and lowers
-  the `server` / `sodamem` loggers to `INFO`, but only when the root logger has
+  the `server` logger to `INFO`, but only when the root logger has
   no handlers — a no-op under pytest or inside a host application that
   configured logging itself. `~/.sodamem/daemon.log` now contains the
   per-request lines. Scope is deliberate: `server` INFO becomes visible, while
   the `sodamem` library's own loggers stay at `WARNING` — turning those on
   would start writing user-derived content (extractor `raw_value` /
   `predicate_raw`) to disk in the clear, which is its own decision, not a side
-  effect of a logging fix. Note: the `uvicorn.error` workaround added in #14 is now
-  redundant (it still works and still produces no duplicate line); unwinding it
-  is left to a follow-up.
+  effect of a logging fix. The `uvicorn.error` workaround added in #14 became
+  redundant with this fix and has since been unwound (#22).
 
 ## [0.1.1] — 2026-08-17
 

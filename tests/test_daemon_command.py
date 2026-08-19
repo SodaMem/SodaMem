@@ -159,15 +159,12 @@ def test_create_app_logs_the_running_interpreter(monkeypatch, tmp_path, caplog):
     reset = _server_env(monkeypatch, tmp_path)
     from server.app import create_app
     try:
-        # The record is emitted on `uvicorn.error` so it actually lands in
-        # daemon.log — uvicorn configures no root handler, so a `server.app`
-        # INFO would be dropped (verified against a real `daemon ensure`).
-        # `at_level` on that logger, not the root one, because uvicorn's
-        # dictConfig is a PROCESS GLOBAL: any earlier test that ran a service
-        # with `log_level="error"` (tests/_service.py does) leaves
-        # `uvicorn.error` pinned at ERROR for the rest of the session, which
-        # is a property of the suite's logging state, not of this code.
-        with caplog.at_level(logging.INFO, logger="uvicorn.error"):
+        # `at_level` names `server.app` rather than taking the bare root
+        # form: under pytest the root logger already has a handler, so
+        # `configure_logging_if_unconfigured()` correctly stands down and
+        # leaves `server` at NOTSET. Nothing else lowers it, so this test has
+        # to do it itself or the INFO record is never created.
+        with caplog.at_level(logging.INFO, logger="server.app"):
             create_app()
         said = [r.getMessage() for r in caplog.records if "interpreter" in r.getMessage()]
         assert said, [r.getMessage() for r in caplog.records]
