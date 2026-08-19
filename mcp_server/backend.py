@@ -35,6 +35,7 @@ expectations.
 """
 from __future__ import annotations
 
+import http.client
 import json
 import logging
 import urllib.error
@@ -369,6 +370,70 @@ class RemoteBackend(Backend):
         except urllib.error.URLError as exc:
             raise BackendError(
                 f"cannot reach the SodaMem service at {self._base}: {exc.reason}. "
+                f"Start it (`sodamem daemon ensure`) or unset SODAMEM_API_URL to "
+                f"run this MCP server against local stores instead."
+            ) from exc
+        except http.client.InvalidURL:
+            # Carved out of the branch below, which would otherwise catch it as
+            # an `HTTPException`. Three reasons, none of them the CLI's:
+            #
+            # 1. It is not a response-phase failure. It comes out of
+            #    `HTTPConnection.__init__` -> `_get_hostport`, before a socket
+            #    exists. Filing it under "the service is not answering" turns a
+            #    config error into a phantom runtime fault.
+            # 2. Converting it would replace a better sentence with a worse
+            #    one. Today the client sees `nonnumeric port: 'notaport'`,
+            #    which names the broken thing exactly. The branch below would
+            #    open with "cannot reach the SodaMem service at
+            #    http://127.0.0.1:notaport" — we never tried to reach it — and
+            #    would put "start it" AHEAD of the remedy that actually works
+            #    here. Note the asymmetry with the CLI: unsetting
+            #    SODAMEM_API_URL genuinely DOES fix a malformed URL for this
+            #    process, because it can serve local stores. That makes the
+            #    ordering of remedies the harm, not their uselessness.
+            # 3. Giving it a better sentence needs a second branch and a second
+            #    piece of copy for a config typo nobody has reported, which the
+            #    client can already read. The place to improve it is
+            #    `config.build_backend()` validating the URL at startup — a
+            #    different issue.
+            raise
+        except (ConnectionError, TimeoutError, http.client.HTTPException) as exc:
+            # The two branches above only cover the CONNECT phase: urllib's
+            # `AbstractHTTPHandler.do_open` wraps the `OSError` out of
+            # `h.request(...)` into `URLError` and nothing else. Whatever
+            # `h.getresponse()` or `r.read()` raises walks straight out of
+            # `_call()` — the ONE transport every remote tool goes through.
+            #
+            # What that costs is not a dead process (`FastMCP.Tool.run` catches
+            # `Exception` and returns `isError=True`, measured on mcp 1.28.1);
+            # it is that the framework writes the only sentence the user gets.
+            # `Error executing tool list_memories: timed out` names neither
+            # SodaMem, nor the URL, nor anything to run. This file knows all
+            # three.
+            #
+            # `ConnectionError` is the issue proper: the SAME shutdown raises
+            # `RemoteDisconnected` when the dying service drained our request
+            # and `ConnectionResetError` when it did not, so catching either
+            # alone leaks the other half. `TimeoutError` is the service that is
+            # up but wedged — since 3.10 it IS `socket.timeout`, and this
+            # project is `requires-python >= 3.11`. `http.client.HTTPException`
+            # is "what came back is not a whole HTTP response":
+            # `IncompleteRead`, `BadStatusLine`, `LineTooLong`. Its one member
+            # that is NOT that is `InvalidURL`, re-raised just above.
+            #
+            # Deliberately NOT bare `OSError` — it would swallow OS failures
+            # with nothing to do with the network. `json.loads` stays outside
+            # the `try` on purpose: a COMPLETE response that is not JSON is the
+            # service's bug, and all six callers here go on to `result.get(...)`,
+            # so calling a JSON syntax error "unreachable" would point every
+            # investigation at the wrong process.
+            #
+            # `import http.client` costs nothing: `urllib.request` already
+            # imports it, and this class's docstring counts import time as
+            # latency (spawned per editor session, and per prompt via the hook).
+            raise BackendError(
+                f"cannot reach the SodaMem service at {self._base}: "
+                f"{type(exc).__name__}: {exc}. "
                 f"Start it (`sodamem daemon ensure`) or unset SODAMEM_API_URL to "
                 f"run this MCP server against local stores instead."
             ) from exc
