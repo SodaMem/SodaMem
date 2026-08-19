@@ -111,6 +111,34 @@ logger 留在 `WARNING`"以及代码（`server/logging_setup.py:46`，`_OUR_LOGG
 这一个词即可。它跟本 issue 是同一种病（已发布的文字在骗读者），就在同一段里，
 改动是一个词、零风险。**如果 Felix 认为这越界，砍掉 AC7 的这半条，其余不受影响。**
 
+### 决策 4（验收时补记）：一个真实存在的行为差异，判定为可接受，只记在这里
+
+审查发现并且我复核确认：设想一个**宿主应用**，它自己配了 logging（root 有 handler，
+且 root 在 WARNING），同时又让 uvicorn 跑它的默认 `LOGGING_CONFIG`。改动前这一行走
+`uvicorn.error`（uvicorn 的 dictConfig 把它设成 INFO 且自带 handler），宿主看得见；
+改动后走 `server.app`，effective level 继承 root 的 WARNING，**记录不再产生**。
+
+判定：**可接受，不需要任何代码或注释来兜底。**
+
+1. 在那个进程里，`server/` 的**每一条** INFO（包括 #19 千辛万苦救回来的 per-request
+   行）本来就已经被丢掉了。改动前这条诊断是**唯一一条享有特权**的 server 记录 ——
+   靠的正是我们现在要删掉的那条绕路。改完之后它和同层的所有记录一视同仁。
+2. 这就是 #19 守卫的语义：root 有 handler = 宿主自己管日志 = 不关我们的事
+   （`server/logging_setup.py:50-59`）。想看的宿主一行就能打开：
+   `logging.getLogger("server").setLevel(logging.INFO)`。
+3. 旧 docstring 自己就承认过这条绕路在非 uvicorn 宿主下"behaves exactly like any
+   other"，所以"任何宿主下都保证可见"从来就不是这行代码许过的诺。
+
+**记在 spec 里，不记进代码。** 往 `_log_runtime_identity()` 的 docstring 里写一段
+"在某种宿主 logging 配置下你看不到我"，等于把刚刚删掉的那类东西（长在诊断函数上的
+日志管道内情）原样请回来 —— 而且这次连"当前为真"都只是勉强成立。
+
+### 决策 3 复核（验收时）
+
+CHANGELOG 里 `/ sodamem` 那处删除：**维持在本次 scope 内**。它和本 issue 是同一个
+缺陷类型（已发布的文字与代码不符）、在同一段落、属于同一条未发布条目，改动是一个
+词。为它单开一个 issue 的开销远大于缺陷本身，那是流程表演不是工程。
+
 ---
 
 ## Implementation Path
@@ -166,6 +194,22 @@ ERROR"—— 这个陷阱随着搬家一起消失：uvicorn 的 `LOGGING_CONFIG`
 
 ## 端到端验证配方（AC4/AC5 用，实现者照抄）
 
+> **修订 A（2026-08-19，验收时改）**：本节初版给的调用方式是错的，而且错得正好是
+> 它自己上一段警告过的那种错。原样留着就等于把本 issue 要消灭的那种"过期指令"再
+> 生产一份，所以就地改掉，并把踩到的两个坑写下来：
+>
+> 1. `sodamem --api-url URL daemon ensure` **根本 parse 不了**。`--api-url` 是
+>    **挂在子命令上的**（`sodamem_cli/main.py:78` 的 `_add_service_flags(p)`），
+>    不是全局 flag。正确写法是 `daemon ensure --api-url URL`。
+> 2. **别用 `sodamem` 这个 console script。** 它的 `sys.path[0]` 是 venv 的
+>    `bin/`，不是 cwd，于是"cd 到 worktree"这一步完全失效，跑的是别人的源码。
+>    必须用 `python -m sodamem_cli`（`-m` 才把 cwd 放进 `sys.path[0]`）。
+> 3. editable install 的真实指向也测错了：实测
+>    `sys.path[0]=<venv>/bin` 时 `import server` 落在
+>    **`/Users/aaron.w/Desktop/SodaMem-worktrees/issue-9/server/__init__.py`**
+>    （issue-9 worktree），不是主仓库。初版看到主仓库路径，只是因为当时 cwd 恰好
+>    是主仓库。结论不变、而且更尖锐：**唯一决定跑哪份源码的是 cwd**。
+
 本 worktree **没有 venv**。用 issue-9 的，绝对路径，`bin` 放 PATH 最前：
 
 ```bash
@@ -173,29 +217,25 @@ V=/Users/aaron.w/Desktop/SodaMem-worktrees/issue-9/.venv
 W=/Users/aaron.w/Desktop/SodaMem-worktrees/issue-22
 export PATH="$V/bin:$PATH"
 export SODAMEM_HOME="$(mktemp -d)/sodamem"     # 一次性，绝不碰 ~/.sodamem
-cd "$W"                                        # 必须！见下
+cd "$W"                                        # 必须！见上面的修订 A
 
 # —— 前置自证：我到底在跑哪份源码 ——
 python -c "import server, sodamem_cli; print(server.__file__); print(sodamem_cli.__file__)"
-# 必须打印 $W/server/__init__.py。已实测：这个 venv 的 editable install 指向
-# /Users/aaron.w/Desktop/SodaMem（主仓库），PYTHONPATH 也压不过它 —— 唯一生效的是
-# sys.path[0]（cwd）。所以 cwd 必须是 worktree，而且这一行输出必须贴进 PR。
+# 必须打印 $W/server/__init__.py。这一行输出必须贴进 PR。
 # daemon 用 subprocess.Popen 且不传 cwd，子进程继承同一个 cwd，因此守护进程
-# 跑的也是同一份源码。
+# 跑的也是同一份源码 —— 而且它会自己在 daemon.log 里签名（console_mount 那条
+# INFO 打印 `$W/console/dist`），那是比父进程自证更硬的证据。
 
-python -c "import socket;s=socket.socket();s.bind(('127.0.0.1',0));print(s.getsockname()[1])"
-# 拿一个空闲端口 P。不要用默认端口：ensure() 见到有人应答会直接返回
+P=$(python -c "import socket;s=socket.socket();s.bind(('127.0.0.1',0));print(s.getsockname()[1])")
+# 拿一个空闲端口。不要用默认端口：ensure() 见到有人应答会直接返回
 # started=False 且不 spawn，那样日志里一行都不会有，证据自动作废。
 
-sodamem --api-url "http://127.0.0.1:$P" daemon ensure
-# 输出里必须有 started/running 为 true —— 否则这次运行不算证据
+python -m sodamem_cli daemon ensure --api-url "http://127.0.0.1:$P"
+# 输出里 running 和 started 必须都是 true —— 否则这次运行不算证据
 grep -c 'serving on interpreter' "$SODAMEM_HOME/daemon.log"
 grep -n  'serving on interpreter' "$SODAMEM_HOME/daemon.log"
-sodamem --api-url "http://127.0.0.1:$P" daemon stop
+python -m sodamem_cli daemon stop --api-url "http://127.0.0.1:$P"
 ```
-
-**before 轮先跑**：在动任何代码之前（worktree 此刻 == origin/main）跑一遍完整配方，
-换一个新的 `SODAMEM_HOME` 再跑 after 轮。两份 `daemon.log` 的相关片段都贴进 PR。
 
 预期差异：
 
@@ -203,6 +243,11 @@ sodamem --api-url "http://127.0.0.1:$P" daemon stop
 |---|---|---|
 | before | 1 | `INFO:     serving on interpreter /…/python (python 3.11.13, chromadb …)`（uvicorn 的 formatter，无时间戳，无 logger 名） |
 | after | 1 | `2026-… INFO server.app: serving on interpreter /…/python (python 3.11.13, chromadb …)`（#19 的 formatter） |
+
+before 轮可以在动代码之前跑（worktree 此时 == origin/main）。**修订 A 补充**：验收时
+只跑了 after 轮 —— 因为 after 的 `daemon.log` 里 uvicorn 自己的 `INFO:     Started
+server process` 就紧挨着我们这一行，两种 formatter 并排摆着，对比不需要第二次运行；
+而 before 轮若改用主仓库 cwd 会把写入引到 `main` 仓库目录（`__pycache__`），不值得。
 
 **诚实说明**：这是一次清理，before 轮**本来就是绿的**。这份 before/after 不是
 "没有改动就会失败"的证明 —— 它证明的是另一件同样必要的事：**这一行确实换了投递
@@ -270,3 +315,20 @@ sodamem --api-url "http://127.0.0.1:$P" daemon stop
 
 **PARTIAL = FAIL。** 尤其是 AC4：这次改动的全部理由是"别让文字骗人"，那么用一份
 真实的 `daemon.log` 证明我们自己写下的新说法为真，是最低限度的自洽。
+
+---
+
+## 验收记录（Iris，2026-08-19，HEAD `4f10e54`）
+
+全部 8 条 AC 独立复核通过，证据见 PR 讨论。要点：
+
+| AC | 证据 |
+|---|---|
+| AC1 | `server/app.py` 第 85 行 `logger.info(...)`；非测试源码 `uvicorn.error` 零命中 |
+| AC2 | 只删第 3、4 段，其余三段逐字保留，零新增 |
+| AC3 | 在内存里把 `_log_runtime_identity` 换成 no-op（不改仓库），`test_create_app_logs_the_running_interpreter` 变红：`AssertionError: []` |
+| AC4 | 真实 `daemon ensure`（临时 `SODAMEM_HOME`，端口 55296），`grep -c` = **1**，行为 `2026-08-19 09:02:57,573 INFO server.app: serving on interpreter …`；同一份日志里 `server.console_mount` 打印 `…/issue-22/console/dist`，守护进程自证跑的是本 worktree |
+| AC5 | 同上计数 1；`tests/test_daemon_logging.py` blob 与 origin/main 完全相同且全绿 |
+| AC6 | `857 passed, 1 skipped` |
+| AC7 | CHANGELOG 不再有 follow-up 措辞，`/ sodamem` 已删 |
+| AC8 | `git diff origin/main --stat` 恰好四个文件；`tests/test_daemon_logging.py`、`specs/issue-14.md`、`specs/issue-19.md`、`server/logging_setup.py` 的 blob hash 与 origin/main 逐字相同 |
